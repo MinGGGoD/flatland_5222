@@ -29,8 +29,8 @@ class focal_priority_queue():
         self.weight:float = weight # The suboptimality weight
         self.focal: bin_heap = bin_heap(compare_function_2)
         self.open: bin_heap = bin_heap(compare_function_1)
-        self.f_min = None
-        self.w_f_min = None
+        self.f_min = 0
+        self.w_f_min = 0
         self.id = 0 # The id of the next item inserted to FOCAL or OPEN
         
         # For the item with an id, use this dictionary to store the corresponding handle of the item in FOCAL or in OPEN 
@@ -38,9 +38,6 @@ class focal_priority_queue():
         self.handles: Dict[int, item_handle] = {} 
     
     def push(self, item: search_node) -> int:
-        if self.f_min == None:
-            self.f_min = item.f_
-            self.w_f_min = item.f_ * self.weight
         id = self.id
         self.id += 1
 
@@ -69,6 +66,9 @@ class focal_priority_queue():
         """
         ###########
         # Implement your code to handle how a search_noded is poped from FOCAL/OPEN
+        # In a Conservative Window Stragety, before you pop a node, you would like to
+        # check if FOCAL is empty, if yes, you should update the f_min, w_f_min and 
+        # bring nodes from OPEN to FOCAL.
         ###########
         node = None
 
@@ -115,8 +115,8 @@ class focal_priority_queue():
         self.open.clear()
         self.focal.clear()
         self.handles.clear()
-        self.f_min = None
-        self.w_f_min = None
+        self.f_min = 0
+        self.w_f_min = 0
         self.id = 0 
 
         
