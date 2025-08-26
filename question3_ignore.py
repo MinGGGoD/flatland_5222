@@ -56,47 +56,47 @@ def get_path(agents: List[EnvAgent],rail: GridTransitionMap, max_timestep: int):
     path_all = []
 
     # for each agent in env
-    for agent_id in range(0,len(agents)):
-        path = []
-        loc = agents[agent_id].initial_position
-        direction = agents[agent_id].initial_direction
+    # for agent_id in range(0,len(agents)):
+    #     path = []
+    #     loc = agents[agent_id].initial_position
+    #     direction = agents[agent_id].initial_direction
 
 
-        for t in range(0, int(max_timestep/10)):
-            # add loc to path list
-            path.append(loc)
-            if loc == agents[agent_id].target:
-                break
+    #     for t in range(0, int(max_timestep/10)):
+    #         # add loc to path list
+    #         path.append(loc)
+    #         if loc == agents[agent_id].target:
+    #             break
 
-            # get available transitions from Rail_Env object.
-            valid_transitions = rail.get_transitions(loc[0],loc[1],direction)
-            for i in range(0,len(valid_transitions)):
-                if valid_transitions[i]:
-                    new_x=loc[0]
-                    new_y=loc[1]
-                    action = i
-                    if action == Directions.NORTH:
-                        new_x -= 1
-                    elif action == Directions.EAST:
-                        new_y += 1
-                    elif action == Directions.SOUTH:
-                        new_x += 1
-                    elif action == Directions.WEST:
-                        new_y -= 1
+    #         # get available transitions from Rail_Env object.
+    #         valid_transitions = rail.get_transitions(loc[0],loc[1],direction)
+    #         for i in range(0,len(valid_transitions)):
+    #             if valid_transitions[i]:
+    #                 new_x=loc[0]
+    #                 new_y=loc[1]
+    #                 action = i
+    #                 if action == Directions.NORTH:
+    #                     new_x -= 1
+    #                 elif action == Directions.EAST:
+    #                     new_y += 1
+    #                 elif action == Directions.SOUTH:
+    #                     new_x += 1
+    #                 elif action == Directions.WEST:
+    #                     new_y -= 1
 
-                    conflict = False
-                    for p in path_all:
-                        if t+1 < len(p) and p[t+1] == (new_x,new_y):
-                            conflict = True
-                        if t+1 < len(p) and p[t+1] ==(loc[0],loc[1]) and  p[t] ==(new_x,new_y):
-                            conflict = True
-                    if conflict:
-                        continue
+    #                 conflict = False
+    #                 for p in path_all:
+    #                     if t+1 < len(p) and p[t+1] == (new_x,new_y):
+    #                         conflict = True
+    #                     if t+1 < len(p) and p[t+1] ==(loc[0],loc[1]) and  p[t] ==(new_x,new_y):
+    #                         conflict = True
+    #                 if conflict:
+    #                     continue
 
-                    loc = (new_x,new_y)
-                    direction = action
-                    break
-        path_all.append(path)
+    #                 loc = (new_x,new_y)
+    #                 direction = action
+    #                 break
+    #     path_all.append(path)
 
     return path_all
 
