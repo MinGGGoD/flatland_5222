@@ -27,11 +27,11 @@ except Exception as e:
 #########################
 
 # Set these debug option to True if you want more information printed
-debug = True
-visualizer = True
+debug = False
+visualizer = False
 
 # If you want to test on specific instance, turn test_single_instance to True and specify the level and test number
-test_single_instance = True
+test_single_instance = False
 level = 1
 test = 0
 
@@ -44,15 +44,33 @@ test = 0
 
 # (dx, dy) offsets
 offsets = {
-    Directions.NORTH: (-1, 0),
-    Directions.EAST: (0, 1),
-    Directions.SOUTH: (1, 0),
-    Directions.WEST: (0, -1),
+    Directions.NORTH: (-1, 0),  # 北方向：向上移动，x减少
+    Directions.EAST: (0, 1),    # 东方向：向右移动，y增加
+    Directions.SOUTH: (1, 0),   # 南方向：向下移动，x增加
+    Directions.WEST: (0, -1),   # 西方向：向左移动，y减少
 }
 
 
 def manhattan_distance(pos1, pos2):
+    """Calculate Manhattan distance between two positions"""
     return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
+
+
+def heuristic_cost(pos, goal, time_so_far, max_timestep):
+    """
+    Improved heuristic function that considers both distance and time constraints
+    """
+    distance = manhattan_distance(pos, goal)
+    # Estimate minimum time needed to reach goal
+    min_time_to_goal = distance
+    # Total estimated cost = time so far + minimum time to goal
+    total_cost = time_so_far + min_time_to_goal
+    
+    # Penalize if we're running out of time
+    if total_cost > max_timestep:
+        total_cost += (total_cost - max_timestep) * 10
+    
+    return total_cost
 
 
 def check_bounds(height, width, x, y) -> bool:
@@ -71,28 +89,29 @@ def build_reservations(existing_paths: list, max_timestep: int):
     """
     reserve_vertices = set()
     reserve_edges = set()
+    
     for p in existing_paths:
         if not p:
             continue
+            
         # Reserve each occupied vertex at its timestep
         for t in range(min(len(p), max_timestep + 1)):
             x, y = p[t]
             reserve_vertices.add((x, y, t))  # vertex occupied at time t
 
-        # Reserve edges between continuous positions to prevent head-on swaps
+        # Reserve edges between consecutive positions to prevent head-on swaps
+        # Only reserve edges for actual moves (not WAIT actions)
         for t in range(min(len(p) - 1, max_timestep)):
             x1, y1 = p[t]
             x2, y2 = p[t + 1]
-            reserve_edges.add(
-                ((x1, y1), (x2, y2), t)
-            )  # other train at time t goes from (x1,y1) to (x2,y2)
+            reserve_edges.add(((x1, y1), (x2, y2), t))
 
-        # Park at goal after arrival: keep last cell occupied up to max_timestep
-        last = p[-1]
-        for t in range(len(p), max_timestep + 1):
-            reserve_vertices.add(
-                (last[0], last[1], t)
-            ) 
+        # Keep the last position occupied after arrival (parking)
+        if p:
+            last_x, last_y = p[-1]
+            for t in range(len(p), max_timestep + 1):
+                reserve_vertices.add((last_x, last_y, t))
+                
     return reserve_vertices, reserve_edges
 
 
@@ -105,10 +124,10 @@ def successors(rail: GridTransitionMap, x: int, y: int, d: int):
     # WAIT
     successor_list.append((x, y, d, "WAIT"))
 
-    valid_actions = rail.get_transitions(x, y, d) # 返回上右下左是否允许移动
-    # print(valid_actions) # 4 elements tuple (0, 0, 0, 1)
+    # Get valid transitions for current position and direction
+    valid_actions = rail.get_transitions(x, y, d)
+    
     for next_dir, allowed in enumerate(valid_actions):
-        # print('next_dir, allowed =>', next_dir, allowed)
         if not allowed:
             continue
         dx, dy = offsets[next_dir]
@@ -136,9 +155,12 @@ def reconstruct_path(parents: dict, end_state: tuple):
         x, y, d, t = s
         path_rev.append((x, y))
         s = parents[s]
-    # add the very first state's position
+    
+    # Add the very first state's position
     x0, y0, d0, t0 = s
     path_rev.append((x0, y0))
+    
+    # Reverse to get correct order
     path_rev.reverse()
     return path_rev
 
@@ -152,7 +174,6 @@ def is_start_permanently_occupied(start, reserve_vertices, max_timestep):
             # If occupied from t=0 to max_timestep, it's permanently occupied
             continue
         else:
-            # If not occupied at some time point, it's not permanently occupied
             return False
     return True
 
@@ -186,35 +207,45 @@ def get_path(
     if start == goal:
         return [start]
 
-    # Generate reservation tables base on existing paths
-    # max_timestep = int(max_timestep) 
+    # Generate reservation tables based on existing paths
     reserve_vertices, reserve_edges = build_reservations(existing_paths, max_timestep)
 
     # Statespace: (x, y, dir, timestep)
     start_state = (start[0], start[1], start_direction, 0)
 
-    # Check initial vertex if occupied permanently
-    if is_start_permanently_occupied(start, reserve_vertices, max_timestep):
-        return []
+    # Check if start position is occupied at t=0
+    if (start[0], start[1], 0) in reserve_vertices:
+        # Try to find a path starting from a later time
+        for t_start in range(1, min(max_timestep, 50)):
+            if (start[0], start[1], t_start) not in reserve_vertices:
+                start_state = (start[0], start[1], start_direction, t_start)
+                break
+        else:
+            return []  # No valid start time found
 
     # OPEN set (priority queue) and bookkeeping
     open_heap = []
     tie = 0
-    g0 = 0
+    g0 = start_state[3]  # Start time
     f0 = g0 + manhattan_distance((start[0], start[1]), goal)
     # Priority: (f_value, h_value, time, tie, state)
-    heapq.heappush(open_heap, (f0, manhattan_distance((start[0], start[1]), goal), 0, tie, start_state))
+    heapq.heappush(open_heap, (f0, manhattan_distance((start[0], start[1]), goal), g0, tie, start_state))
     tie += 1
 
-    # Pruning: record earliest arrival time for (x,y,dir)
-    best_arrival = {}  # key=(x,y,dir)->t
+    # Visited states to avoid re-expansion of identical (x,y,dir,t)
+    visited = set()
     
-    # Parent pointers for path reconstruct
+    # Parent pointers for path reconstruction
     parents = {}
 
     # A*
     while open_heap:
         _, _, _, _, (x, y, d, t) = heapq.heappop(open_heap)
+
+        state = (x, y, d, t)
+        if state in visited:
+            continue
+        visited.add(state)
 
         # Goal test
         if (x, y) == goal:
@@ -224,36 +255,28 @@ def get_path(
         # Generate successors for next timestep
         for nx, ny, nd, move_type in successors(rail, x, y, d):
             t2 = t + 1
-            if t2 > max_timestep: # time exceed
+            if t2 > max_timestep:  # time exceed
                 continue
 
-            # Vertex conflict
+            # Vertex conflict check
             if (nx, ny, t2) in reserve_vertices:
                 continue
 
-            # Edge conflict
-            if not (nx == x and ny == y):
+            # Edge conflict check (only for actual moves, not WAIT)
+            if move_type == "MOVE":
                 if edge_conflict((x, y), (nx, ny), t, reserve_edges):
                     continue
 
-            # Pruning
-            key = (nx, ny, nd)
-            prev_best = best_arrival.get(key, None)
-            if prev_best is not None and prev_best <= t2:
-                continue
-            best_arrival[key] = t2
-
-            # Costs: g = time so far, h = Manhattan distance
+            # Push successor
             g2 = t2
             f2 = g2 + manhattan_distance((nx, ny), goal)
-
-            # Update open set
             s2 = (nx, ny, nd, t2)
-            parents[s2] = (x, y, d, t)
-            heapq.heappush(open_heap, (f2, manhattan_distance((nx, ny), goal), t2, tie, s2))
-            tie += 1
+            if s2 not in visited:
+                parents[s2] = (x, y, d, t)
+                heapq.heappush(open_heap, (f2, manhattan_distance((nx, ny), goal), t2, tie, s2))
+                tie += 1
 
-    # No feasible path 
+    # No path found
     return []
 
 
