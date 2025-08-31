@@ -23,11 +23,11 @@ debug = False
 visualizer = False
 
 # If you want to test on specific instance, turn test_single_instance to True and specify the level and test number
-test_single_instance = False
-test_single_level = False
+test_single_instance = True
+test_single_level = True
 level = 1
-test = 0
-# 0,6
+test = 5
+
 #########################
 # Reimplementing the content in get_path() function and replan() function.
 #
@@ -57,7 +57,8 @@ def successors(rail, loc, direction):
     x, y = loc
     neighbors = []
     valid = rail.get_transitions(x, y, direction) 
-    for d in range(4):
+    order = [direction, (direction+1)%4, (direction+3)%4, (direction+2)%4]
+    for d in order:
         if valid[d]:
             next_x, next_y = x, y
             if d == 0: next_x -= 1
@@ -223,7 +224,8 @@ def single_agent_astar(agent_id, rail, start_location, start_direction, goal, st
             if is_reserved(agent_id, (x,y), (next_x,next_y), n_timestep):
                 continue
             next_key = (next_x,next_y,next_direction,n_timestep)
-            next_g_val = g_val + 1
+            wait_penalty = 0.1 if (next_x == x and next_y == y) else 0
+            next_g_val = g_val + 1 + wait_penalty
             if next_g_val < g_value.get(next_key, float('inf')):
                 g_value[next_key] = next_g_val
                 h_val  = manhattan_distance((next_x,next_y), goal)
