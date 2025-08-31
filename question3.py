@@ -24,6 +24,7 @@ visualizer = False
 
 # If you want to test on specific instance, turn test_single_instance to True and specify the level and test number
 test_single_instance = False
+test_single_level = False
 level = 1
 test = 0
 # 0,6
@@ -373,6 +374,8 @@ if __name__ == "__main__":
 
         if test_single_instance:
             test_cases = glob.glob(os.path.join(script_path,"multi_test_case/level{}_test_{}.pkl".format(level, test)))
+        elif test_single_level:
+            test_cases = glob.glob(os.path.join(script_path, f"multi_test_case/level{level}_test_*.pkl"))
         test_cases.sort()
         deadline_files =  [test.replace(".pkl",".ddl") for test in test_cases]
         evaluator(get_path, test_cases, debug, visualizer, 3, deadline_files, replan = replan)
