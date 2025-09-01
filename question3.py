@@ -23,9 +23,9 @@ debug = False
 visualizer = False
 
 # If you want to test on specific instance, turn test_single_instance to True and specify the level and test number
-test_single_instance = False
+test_single_instance = True
 test_single_level = True
-level = 6
+level = 5
 test = 4
 
 # ======== Delay start config ========
@@ -33,6 +33,12 @@ DELAY_ENABLED = True # switch
 DELAY_STEP   = 2 # delay step
 DELAY_GROUPS  = 3 # number of groups
 # ============================================
+
+# ======== A*  thresholds ========
+ASTAR_TIMEOUT_SEC = 2.0 # maximum time for single agent search (seconds)
+ASTAR_EXPANSION_CAP = 500_000 # maximum number of nodes popped in single A*
+USE_PER_AGENT_DEADLINE = True  # use each agent's deadline as time upper bound
+# ==================================
 
 #########################
 # Reimplementing the content in get_path() function and replan() function.
@@ -233,7 +239,7 @@ def reconstruct_path_aligned(parents, goal_state_key, start_location, start_time
     return [location_by_timestep[t] for t in range(0, max_timestep + 1)]
 
 # ---------- Single-agent Time-based A*  ----------
-def single_agent_astar(agent_id, rail, start_location, start_direction, goal, start_timestep, max_t):
+def single_agent_astar(agent_id, rail, start_location, start_direction, goal, start_timestep, max_t, t_limit=None):
     """
     Time-expanded A* with reservation table (single agent vs moving obstacles)
 
@@ -248,6 +254,18 @@ def single_agent_astar(agent_id, rail, start_location, start_direction, goal, st
     """
     if debug:
         print(f"地图宽高: {rail.height}x{rail.width}")
+    
+    # set time limit for this search
+    if t_limit is None:
+        # max_t
+        eff_limit = max_t
+    else:
+        eff_limit = min(max_t, t_limit)
+    # timer counter
+    t_begin = time.time()
+    # expansion counter
+    expansions = 0
+
     open_heap = []
     start_key = (start_location[0], start_location[1], start_direction, start_timestep)
     g_value = {start_key: 0}
@@ -260,6 +278,12 @@ def single_agent_astar(agent_id, rail, start_location, start_direction, goal, st
     while open_heap:
         _, g_val, x, y, direction, timestep, parent = heapq.heappop(open_heap)
         current_key = (x,y,direction,timestep)
+        
+        expansions += 1
+        if expansions >= ASTAR_EXPANSION_CAP or (time.time() - t_begin) >= ASTAR_TIMEOUT_SEC:
+            # stop search, start reconstruct
+            break
+        
         if g_val != g_value.get(current_key, float('inf')):
             continue
         if parents[current_key] is None and parent is not None:
@@ -267,7 +291,7 @@ def single_agent_astar(agent_id, rail, start_location, start_direction, goal, st
         if (x, y) == goal:
             best_goal_state_key = current_key
             break
-        if timestep >= max_t:
+        if timestep >= eff_limit:
             continue
         for (next_location, next_direction) in successors(rail, (x,y), direction):
             next_x, next_y = next_location
@@ -356,10 +380,12 @@ def get_path(agents: List[EnvAgent], rail: GridTransitionMap, max_timestep: int)
         # path_i = single_agent_astar(agent_id, rail, agent.initial_position, agent.initial_direction, agent.target, start_timestep=0, max_t=max_timestep_global)
         # use delay start timestep as start timestep
         t0 = start_delays.get(agent_id, 0)
+        ddl = getattr(agent, "deadline", None)
+        t_limit = min(max_timestep_global, ddl) if (USE_PER_AGENT_DEADLINE and ddl is not None) else max_timestep_global
         path_i = single_agent_astar(
             agent_id, rail,
             agent.initial_position, agent.initial_direction, agent.target,
-            start_timestep=t0, max_t=max_timestep_global
+            start_timestep=t0, max_t=max_timestep_global, t_limit=t_limit
         )
         planned_paths[agent_id] = path_i
         reserve_path(agent_id, path_i, t_start=0) # update reservation table
@@ -442,7 +468,13 @@ def replan(agents: List[EnvAgent], rail: GridTransitionMap, current_timestep: in
                 reserve_edges_table[t-1][(cur_loc, cur_loc)] = i
 
         new_start_timestep = current_timestep + wait_steps
-        new_path = single_agent_astar(i, rail, cur_loc, cur_dir, agent.target, start_timestep=new_start_timestep, max_t=max_timestep_global)
+        ddl = getattr(agent, "deadline", None)
+        t_limit = min(max_timestep_global, ddl) if (USE_PER_AGENT_DEADLINE and ddl is not None) else max_timestep_global
+        new_path = single_agent_astar(
+            i, rail, cur_loc, cur_dir, agent.target,
+            start_timestep=new_start_timestep, max_t=max_timestep_global, t_limit=t_limit
+        )
+        # new_path = single_agent_astar(i, rail, cur_loc, cur_dir, agent.target, start_timestep=new_start_timestep, max_t=max_timestep_global)
         planned_paths[i] = form_new_path(planned_paths[i], new_path, split_t=current_timestep)
         reserve_path(i, planned_paths[i], t_start=current_timestep)
 
