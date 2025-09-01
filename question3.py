@@ -25,14 +25,8 @@ visualizer = False
 # If you want to test on specific instance, turn test_single_instance to True and specify the level and test number
 test_single_instance = True
 test_single_level = True
-level = 5
-test = 4
-
-# ======== Delay start config ========
-DELAY_ENABLED = True # switch
-DELAY_STEP   = 2 # delay step
-DELAY_GROUPS  = 3 # number of groups
-# ============================================
+level = 1
+test = 5
 
 # ======== A*  thresholds ========
 ASTAR_TIMEOUT_SEC = 2.0 # maximum time for single agent search (seconds)
@@ -165,49 +159,6 @@ def malfunction_remaining(agent: EnvAgent) -> int:
     if malfunction_data and "malfunction" in malfunction_data:
         return int(malfunction_data["malfunction"])
 
-def compute_start_delays(agents, delay_step=2, groups=3):
-    """
-    Compute each agent's start delay based on urgency (urgency = slack/dist).
-    Returns: delays[agent_id] = delay steps
-    """
-    n = len(agents)
-    if not DELAY_ENABLED or n == 0 or groups <= 1:
-        return {i: 0 for i in range(n)}
-
-    scored = []  # (agent_id, urgency, deadline)
-    for idx, agent in enumerate(agents):
-        start = agent.initial_position
-        goal = agent.target
-        ddl = getattr(agent, "deadline", None)
-        dist = manhattan_distance(start, goal)
-        # slack = ddl - dist (no deadline is very loose)
-        if ddl is None:
-            urgency = float('inf')    # the least urgent
-            eff_ddl = sys.maxsize   
-        else:
-            slack = ddl - dist
-            # prevent dist=0
-            dist = dist if dist > 0 else 1
-            urgency = slack / dist
-            eff_ddl = ddl
-        # urgency smaller is tighter -> earlier
-        scored.append((idx, urgency, eff_ddl))
-
-    scored.sort(key=lambda x: (x[1], x[2]))  # first urgency, then deadline
-
-    # divide into groups
-    delays = {}
-    # number of agents per group (ceil(n/groups))
-    group_size = (n + groups - 1) // groups if groups > 0 else n
-    # general grouping: divide n agents into groups uniformly
-    for rank, (idx, _, _) in enumerate(scored):
-        group_idx = rank // group_size
-        if group_idx >= groups:     
-            group_idx = groups - 1
-        delays[idx] = group_idx * delay_step
-    return delays
-
-
 # ---------- Reconstruct path ----------
 def reconstruct_path_aligned(parents, goal_state_key, start_location, start_timestep, max_timestep):
     """Reconstruct path from parents."""
@@ -322,37 +273,6 @@ def get_path(agents: List[EnvAgent], rail: GridTransitionMap, max_timestep: int)
         max_timestep: maximum timestep.
     """
     global reserve_vertices_table, reserve_edges_table, planned_paths, agent_order, max_timestep_global
-    if debug:
-        # 打印每个 agent 的起点、终点、曼哈顿距离与 deadline，并做简单统计分析
-        try:
-            print("Agents start/target with deadlines:")
-            distances = []
-            deadlines = []
-            slacks = []
-            for idx, ag in enumerate(agents):
-                start = ag.initial_position
-                goal = ag.target
-                ddl = getattr(ag, 'deadline', None)
-                dist = manhattan_distance(start, goal)
-                slack = None if ddl is None else ddl - dist
-                print(f"  Agent {idx}: start={start} -> target={goal}, dist={dist}, deadline={ddl}, slack={slack}")
-                if ddl is not None:
-                    distances.append(dist)
-                    deadlines.append(ddl)
-                    slacks.append(slack)
-            if distances:
-                n = len(distances)
-                mean_d = sum(distances)/n
-                mean_ddl = sum(deadlines)/n
-                mean_slack = sum(slacks)/n
-                num = sum((x-mean_d)*(y-mean_ddl) for x,y in zip(distances, deadlines))
-                den_x = sum((x-mean_d)**2 for x in distances) ** 0.5
-                den_y = sum((y-mean_ddl)**2 for y in deadlines) ** 0.5
-                corr = 0.0 if den_x==0 or den_y==0 else num/(den_x*den_y)
-                nonpos_slack = sum(1 for s in slacks if s is not None and s <= 0)
-                print(f"Summary: mean_dist={mean_d:.2f}, mean_deadline={mean_ddl:.2f}, mean_slack={mean_slack:.2f}, corr(dist,deadline)={corr:.3f}, nonpos_slack={nonpos_slack}/{n}")
-        except Exception as _:
-            pass
     # Initialize global variables
     max_timestep_global = int(max_timestep)
     reserve_vertices_table.clear()
@@ -370,23 +290,9 @@ def get_path(agents: List[EnvAgent], rail: GridTransitionMap, max_timestep: int)
         priorities.append((agent_id, ddl if ddl is not None else max_timestep_global, manhattan_distance(start, goal)))
     agent_order = [agent_id for (agent_id,_,_) in sorted(priorities, key=lambda x: (x[1], x[2]))]
 
-    # compute delay start steps
-    start_delays = compute_start_delays(agents, delay_step=DELAY_STEP, groups=DELAY_GROUPS)
-    if debug:
-        print("delay start steps:", start_delays)
-
     for agent_id in agent_order:
         agent = agents[agent_id]
-        # path_i = single_agent_astar(agent_id, rail, agent.initial_position, agent.initial_direction, agent.target, start_timestep=0, max_t=max_timestep_global)
-        # use delay start timestep as start timestep
-        t0 = start_delays.get(agent_id, 0)
-        ddl = getattr(agent, "deadline", None)
-        t_limit = min(max_timestep_global, ddl) if (USE_PER_AGENT_DEADLINE and ddl is not None) else max_timestep_global
-        path_i = single_agent_astar(
-            agent_id, rail,
-            agent.initial_position, agent.initial_direction, agent.target,
-            start_timestep=t0, max_t=max_timestep_global, t_limit=t_limit
-        )
+        path_i = single_agent_astar(agent_id, rail, agent.initial_position, agent.initial_direction, agent.target, start_timestep=0, max_t=max_timestep_global)
         planned_paths[agent_id] = path_i
         reserve_path(agent_id, path_i, t_start=0) # update reservation table
 

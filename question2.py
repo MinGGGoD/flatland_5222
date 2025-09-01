@@ -188,7 +188,7 @@ def is_start_permanently_occupied(start, reserve_vertices, max_timestep):
 # @param existing_paths A list of lists of locations indicate existing paths. The index of each location is the time that
 # @param max_timestep The max timestep of this episode.
 # @return path A list of (x,y) tuple.
-def get_path(
+def get_path1(
     start: tuple,
     start_direction: int,
     goal: tuple,
