@@ -23,10 +23,10 @@ debug = False
 visualizer = False
 
 # If you want to test on specific instance, turn test_single_instance to True and specify the level and test number
-test_single_instance = False
+test_single_instance = True
 test_single_level = True
-level = 1
-test = 5
+level = 5
+test = 4
 
 #########################
 # Reimplementing the content in get_path() function and replan() function.
@@ -183,6 +183,7 @@ def reconstruct_path_aligned(parents, goal_state_key, start_location, start_time
         location_by_timestep.setdefault(t, start_location)
     return [location_by_timestep[t] for t in range(0, max_timestep + 1)]
 
+
 # ---------- Single-agent Time-based A*  ----------
 def single_agent_astar(agent_id, rail, start_location, start_direction, goal, start_timestep, max_t):
     """
@@ -263,8 +264,14 @@ def get_path(agents: List[EnvAgent], rail: GridTransitionMap, max_timestep: int)
         start = agent.initial_position
         goal = agent.target
         ddl = getattr(agent, "deadline", None)
-        priorities.append((agent_id, ddl if ddl is not None else max_timestep_global, manhattan_distance(start, goal)))
-    agent_order = [agent_id for (agent_id,_,_) in sorted(priorities, key=lambda x: (x[1], x[2]))]
+        dist = manhattan_distance(start, goal)
+        # ddl - dist
+        slack = (ddl - dist) if ddl is not None else sys.maxsize
+        priorities.append((agent_id, slack, dist))
+        # sort by slack ascending, then by dist ascending
+    agent_order = [aid for (aid,_,_) in sorted(priorities, key=lambda x: (x[1], x[2]))]
+    #     priorities.append((agent_id, ddl if ddl is not None else max_timestep_global, manhattan_distance(start, goal)))
+    # agent_order = [agent_id for (agent_id,_,_) in sorted(priorities, key=lambda x: (x[1], x[2]))]
 
     for agent_id in agent_order:
         agent = agents[agent_id]
