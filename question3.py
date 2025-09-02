@@ -44,10 +44,40 @@ planned_paths = [] # Current paths for all agents (path[t]=(x,y))
 agent_order = [] # Planning order
 max_timestep_global = 0
 
+# Congestion heuristic parameters
+CONGESTION_RADIUS = 2          # spatial radius (Manhattan)
+CONGESTION_TIME_WINDOW = 2     # time window around t
+CONGESTION_ALPHA = 0.4         # weight for congestion penalty in heuristic
+
 # ========== Tools functions ==========
 def manhattan_distance(pos1, pos2):
     """Calculate Manhattan distance between two positions"""
     return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
+
+def congestion_heuristic(location, timestep):
+    """
+    Compute a congestion-aware penalty around location at given timestep using
+    current reservation tables. This encourages paths to avoid crowded areas.
+
+    The penalty accumulates reservations in a spatial radius and temporal window
+    around (location, timestep), discounted by spatial and temporal distance.
+    """
+    if not reserve_vertices_table:
+        return 0.0
+    lx, ly = location
+    total_penalty = 0.0
+    for dt in range(-CONGESTION_TIME_WINDOW, CONGESTION_TIME_WINDOW + 1):
+        t = timestep + dt
+        rv = reserve_vertices_table.get(t, {})
+        if not rv:
+            continue
+        time_weight = 1.0 / (1 + abs(dt))
+        for (cx, cy) in rv.keys():
+            d = abs(cx - lx) + abs(cy - ly)
+            if d <= CONGESTION_RADIUS:
+                space_weight = 1.0 / (1 + d)
+                total_penalty += time_weight * space_weight
+    return CONGESTION_ALPHA * total_penalty
 
 def successors(rail, loc, direction):
     """
@@ -204,7 +234,8 @@ def single_agent_astar(agent_id, rail, start_location, start_direction, goal, st
     start_key = (start_location[0], start_location[1], start_direction, start_timestep)
     g_value = {start_key: 0}
     # f = g + h
-    heapq.heappush(open_heap, (g_value[start_key] + manhattan_distance(start_location, goal), 0, *start_key, None))
+    h0 = manhattan_distance(start_location, goal) + congestion_heuristic(start_location, start_timestep)
+    heapq.heappush(open_heap, (g_value[start_key] + h0, 0, *start_key, None))
     parents = {start_key: None}
     best_goal_state_key = None
 
@@ -231,7 +262,7 @@ def single_agent_astar(agent_id, rail, start_location, start_direction, goal, st
             next_g_val = g_val + 1 + wait_penalty
             if next_g_val < g_value.get(next_key, float('inf')):
                 g_value[next_key] = next_g_val
-                h_val  = manhattan_distance((next_x,next_y), goal)
+                h_val  = manhattan_distance((next_x,next_y), goal) + congestion_heuristic((next_x, next_y), n_timestep)
                 heapq.heappush(open_heap, (next_g_val+h_val, next_g_val, next_x, next_y, next_direction, n_timestep, current_key))
                 if next_key not in parents:
                     parents[next_key] = current_key
