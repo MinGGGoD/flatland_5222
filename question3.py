@@ -1,10 +1,9 @@
-
 from typing import List
 from lib_piglet.utils.tools import eprint
 import glob, os, sys, time, json
 import heapq
 
-#import necessary modules that this python scripts need.
+# import necessary modules that this python scripts need.
 try:
     from flatland.core.transition_map import GridTransitionMap
     from flatland.envs.agent_utils import EnvAgent
@@ -24,9 +23,9 @@ visualizer = False
 
 # If you want to test on specific instance, turn test_single_instance to True and specify the level and test number
 test_single_instance = False
-test_single_level = True
-level = 2
-test = 7
+test_single_level = False
+level = 1
+test = 5
 
 #########################
 # Reimplementing the content in get_path() function and replan() function.
@@ -36,10 +35,9 @@ test = 7
 # Hint, you could use some global variables to reuse many resources across get_path/replan frunction calls.
 #########################
 
-
 # Reservation tables
-reserve_vertices_table = {}   # t -> {(x,y): agent_id}
-reserve_edges_table = {}  # t -> {((current),(next)): agent_id}
+reserve_vertices_table = {} # t -> {(x,y): agent_id}
+reserve_edges_table = {} # t -> {((current),(next)): agent_id}
 planned_paths = [] # Current paths for all agents (path[t]=(x,y))
 agent_order = [] # Planning order
 max_timestep_global = 0
@@ -56,9 +54,8 @@ def successors(rail, loc, direction):
     """
     x, y = loc
     neighbors = []
-    valid = rail.get_transitions(x, y, direction) 
-    order = [direction, (direction+1)%4, (direction+3)%4, (direction+2)%4]
-    for d in order:
+    valid = rail.get_transitions(x, y, direction)
+    for d in range(4):
         if valid[d]:
             next_x, next_y = x, y
             if d == 0: next_x -= 1
@@ -83,7 +80,7 @@ def is_reserved(agent_id, current, next, t_next):
     rv = reserve_vertices_table.get(t_next, {})
     if next in rv and rv[next] != agent_id:
         return True
- 
+
     # Edge conflict
     if t_next-1 in reserve_edges_table:
         re = reserve_edges_table.get(t_next-1, {})
@@ -116,10 +113,6 @@ def reserve_path(agent_id, path, t_start):
         reserve_vertices_table[t].setdefault(current, agent_id)
         reserve_vertices_table[t+1].setdefault(next, agent_id)
         reserve_edges_table[t].setdefault((current, next), agent_id)
-    # goal = path[-1]
-    # for t in range(len(path), max_timestep_global+1):
-    #     reserve_vertices_table.setdefault(t, {})
-    #     reserve_vertices_table[t].setdefault(goal, agent_id)
 
 def form_new_path(old_path, new_path, split_t):
     """
@@ -136,7 +129,7 @@ def form_new_path(old_path, new_path, split_t):
 
 def get_current_position(agent: EnvAgent):
     """
-    Get the agent current pose. 
+    Get the agent current pose.
     Return ((x,y), direction).
     """
     loc = getattr(agent, "position", None)
@@ -152,8 +145,8 @@ def malfunction_remaining(agent: EnvAgent) -> int:
     malfunction_data = getattr(agent, "malfunction_data", None)
     if malfunction_data and "malfunction" in malfunction_data:
         return int(malfunction_data["malfunction"])
+    return 0
 
-# ---------- Reconstruct path ----------
 def reconstruct_path_aligned(parents, goal_state_key, start_location, start_timestep, max_timestep):
     """Reconstruct path from parents."""
     location_by_timestep = {}
@@ -164,7 +157,7 @@ def reconstruct_path_aligned(parents, goal_state_key, start_location, start_time
             reversed_states.append(current_state)
             current_state = parents[current_state]
         reversed_states.reverse()
-        
+
         # Map each timestep to its corresponding position
         for (x, y, d, t) in reversed_states:
             location_by_timestep[t] = (x, y)
@@ -177,12 +170,11 @@ def reconstruct_path_aligned(parents, goal_state_key, start_location, start_time
         # No solution, use WAIT fill all timesteps
         for t in range(start_timestep, max_timestep + 1):
             location_by_timestep[t] = start_location
-            
+
     # If waiting from start, use start location to fill all timesteps
     for t in range(0, start_timestep):
         location_by_timestep.setdefault(t, start_location)
     return [location_by_timestep[t] for t in range(0, max_timestep + 1)]
-
 
 # ---------- Single-agent Time-based A*  ----------
 def single_agent_astar(agent_id, rail, start_location, start_direction, goal, start_timestep, max_t):
@@ -211,7 +203,7 @@ def single_agent_astar(agent_id, rail, start_location, start_direction, goal, st
     # A*
     while open_heap:
         _, g_val, x, y, direction, timestep, parent = heapq.heappop(open_heap)
-        current_key = (x,y,direction,timestep)
+        current_key = (x, y, direction, timestep)
         if g_val != g_value.get(current_key, float('inf')):
             continue
         if parents[current_key] is None and parent is not None:
@@ -221,91 +213,66 @@ def single_agent_astar(agent_id, rail, start_location, start_direction, goal, st
             break
         if timestep >= max_t:
             continue
-        for (next_location, next_direction) in successors(rail, (x,y), direction):
+        for (next_location, next_direction) in successors(rail, (x, y), direction):
             next_x, next_y = next_location
             n_timestep = timestep + 1
-            if is_reserved(agent_id, (x,y), (next_x,next_y), n_timestep):
+            if is_reserved(agent_id, (x, y), (next_x, next_y), n_timestep):
                 continue
-            next_key = (next_x,next_y,next_direction,n_timestep)
+            next_key = (next_x, next_y, next_direction, n_timestep)
             wait_penalty = 0.1 if (next_x == x and next_y == y) else 0
             next_g_val = g_val + 1 + wait_penalty
             if next_g_val < g_value.get(next_key, float('inf')):
                 g_value[next_key] = next_g_val
-                h_val  = manhattan_distance((next_x,next_y), goal)
-                heapq.heappush(open_heap, (next_g_val+h_val, next_g_val, next_x, next_y, next_direction, n_timestep, current_key))
+                h_val  = manhattan_distance((next_x, next_y), goal)
+                heapq.heappush(open_heap, (next_g_val + h_val, next_g_val, next_x, next_y, next_direction, n_timestep, current_key))
                 if next_key not in parents:
                     parents[next_key] = current_key
 
     # Reconstruct path
     return reconstruct_path_aligned(parents, best_goal_state_key, start_location, start_timestep, max_t)
 
+def remaining_distance_to_goal(agent: EnvAgent, loc=None):
+    if loc is None:
+        loc = agent.initial_position
+    goal = agent.target
+    return manhattan_distance(loc, goal)
 
 def get_path(agents: List[EnvAgent], rail: GridTransitionMap, max_timestep: int):
     """
     Multi-agent planning: plan in order and update reservation table.
-
-    Parameters:
-        agents: agents list.
-        rail: grid environment.
-        max_timestep: maximum timestep.
     """
     global reserve_vertices_table, reserve_edges_table, planned_paths, agent_order, max_timestep_global
-    # Initialize global variables
     max_timestep_global = int(max_timestep)
     reserve_vertices_table.clear()
     reserve_edges_table.clear()
-    
+
     # Initialize paths for all agents
     planned_paths = [[] for _ in range(len(agents))]
 
-    # Priority rule: deadline (ascending), then by Manhattan distance to goal (ascending)
-    priorities = [] # (agent_id, deadline, Manhattan distance)
-    for agent_id,agent in enumerate(agents):
-        start = agent.initial_position
-        goal = agent.target
-        ddl = getattr(agent, "deadline", None)
-        dist = manhattan_distance(start, goal)
-        # ddl - dist
-        slack = (ddl - dist) if ddl is not None else sys.maxsize
-        priorities.append((agent_id, slack, dist))
-        # sort by slack ascending, then by dist ascending
-    agent_order = [aid for (aid,_,_) in sorted(priorities, key=lambda x: (x[1], x[2]))]
-    #     priorities.append((agent_id, ddl if ddl is not None else max_timestep_global, manhattan_distance(start, goal)))
-    # agent_order = [agent_id for (agent_id,_,_) in sorted(priorities, key=lambda x: (x[1], x[2]))]
+    priorities = []  # (agent_id, dist)
+    for agent_id, agent in enumerate(agents):
+        dist = remaining_distance_to_goal(agent, agent.initial_position)
+        priorities.append((agent_id, dist))
+    agent_order = [aid for (aid, _) in sorted(priorities, key=lambda x: x[1])]
 
     for agent_id in agent_order:
         agent = agents[agent_id]
-        path_i = single_agent_astar(agent_id, rail, agent.initial_position, agent.initial_direction, agent.target, start_timestep=0, max_t=max_timestep_global)
+        path_i = single_agent_astar(
+            agent_id, rail,
+            agent.initial_position, agent.initial_direction,
+            agent.target, start_timestep=0, max_t=max_timestep_global
+        )
         planned_paths[agent_id] = path_i
-        reserve_path(agent_id, path_i, t_start=0) # update reservation table
-
-    # if debug:
-    #     print("=====LOG===== reserve_vertices_table:", file=sys.stderr)
-    #     for t in sorted(reserve_vertices_table.keys()):
-    #         print(f"  t={t}: {reserve_vertices_table[t]}", file=sys.stderr)
-    #     print("=====LOG===== reserve_edges_table:", file=sys.stderr)
-    #     for t in sorted(reserve_edges_table.keys()):
-    #         print(f"  t={t}: {reserve_edges_table[t]}", file=sys.stderr)
+        reserve_path(agent_id, path_i, t_start=0)  # update reservation table
 
     return planned_paths
 
-
-def replan(agents: List[EnvAgent], rail: GridTransitionMap, current_timestep: int, 
+def replan(agents: List[EnvAgent], rail: GridTransitionMap, current_timestep: int,
            existing_paths, max_timestep: int, new_malfunction_agents, failed_agents):
     """
     Cache paths and replan new paths for malfunction agents or failed agents.
-
-    Parameters:
-        agents: agents list.
-        rail: grid environment.
-        current_timestep: at which timestep during the execution, the replan function is called.
-        existing_paths: the paths from the previous get_path/replan function call
-        max_timestep: maximum timestep.
-        new_malfunction_agents: a list of ids of agents that have a new malfunction happens at the current time step.
-        failed_agents: a list of ids of agents that failed to reach their intended location at the current timestep.
     """
     global reserve_vertices_table, reserve_edges_table, planned_paths, agent_order, max_timestep_global
-    # Initialize global variables
     max_timestep_global = int(max_timestep)
     planned_paths = existing_paths
 
@@ -315,17 +282,21 @@ def replan(agents: List[EnvAgent], rail: GridTransitionMap, current_timestep: in
     current_timestep = int(current_timestep)
     for i in range(len(agents)):
         plan = planned_paths[i]
-        for t in range(0, current_timestep):
+        if not plan:
+            continue
+        # guard: avoid index errors if plan shorter than current_timestep+1
+        upto = min(current_timestep, len(plan) - 1)
+        for t in range(0, upto):
             current = plan[t]
-            next = plan[t+1]
+            nxt = plan[t+1]
             reserve_vertices_table.setdefault(t, {})
             reserve_vertices_table.setdefault(t+1, {})
             reserve_edges_table.setdefault(t, {})
             reserve_vertices_table[t][current] = i
-            reserve_vertices_table[t+1][next] = i
-            reserve_edges_table[t][(current, next)] = i
+            reserve_vertices_table[t+1][nxt] = i
+            reserve_edges_table[t][(current, nxt)] = i
 
-    to_replan = set(new_malfunction_agents) | set(failed_agents) # agents that need replanning
+    to_replan = set(new_malfunction_agents) | set(failed_agents)
 
     # Update reservation table for normal agents
     for i in range(len(agents)):
@@ -333,46 +304,38 @@ def replan(agents: List[EnvAgent], rail: GridTransitionMap, current_timestep: in
             continue
         reserve_path(i, planned_paths[i], t_start=current_timestep)
 
-    # Setup priority order
-    if not agent_order:
-        priorities = []
-        for i,agent in enumerate(agents):
-            ddl = getattr(agent, "deadline", None)
-            dist = manhattan_distance(agent.initial_position, agent.target)
-            slack = (ddl - dist) if ddl is not None else sys.maxsize
-            priorities.append((i, slack, dist))
-        # sort by slack ascending, then by dist ascending
-        agent_order = [aid for (aid,_,_) in sorted(priorities, key=lambda x: (x[1], x[2]))]
-        #     priorities.append((i, ddl if ddl is not None else max_timestep_global, slack, dist))
-        # agent_order = [i for (i,_) in sorted(priorities, key=lambda x: (x[1],x[2], x[3]))]
+    # Build (agent_id, remaining_distance) based on CURRENT location.
+    srd_list = []
+    for i in to_replan: # short remaining distance
+        agent = agents[i]
+        cur_loc, _cur_dir = get_current_position(agent)
+        dist = remaining_distance_to_goal(agent, cur_loc)
+        srd_list.append((i, dist))
+    # sort by shortest remaining distance
+    srd_order = [aid for (aid, _) in sorted(srd_list, key=lambda x: x[1])]
 
-    # Replan by priority
-    for i in [k for k in agent_order if k in to_replan]:
+    # Replan by SRD priority
+    for i in srd_order:
         agent = agents[i]
         cur_loc, cur_dir = get_current_position(agent)
         wait_steps = malfunction_remaining(agent) if i in new_malfunction_agents else 0
 
-        # waiting for malfunction
+        # waiting for malfunction (reserve current cell while waiting)
         for k in range(wait_steps):
             t = current_timestep + k
             reserve_vertices_table.setdefault(t, {})
             reserve_vertices_table[t][cur_loc] = i
-            if t-1 >= 0: # edge circle, stay at the same location
+            if t-1 >= 0:  # edge circle, stay at the same location
                 reserve_edges_table.setdefault(t-1, {})
                 reserve_edges_table[t-1][(cur_loc, cur_loc)] = i
 
         new_start_timestep = current_timestep + wait_steps
-        new_path = single_agent_astar(i, rail, cur_loc, cur_dir, agent.target, start_timestep=new_start_timestep, max_t=max_timestep_global)
+        new_path = single_agent_astar(
+            i, rail, cur_loc, cur_dir, agent.target,
+            start_timestep=new_start_timestep, max_t=max_timestep_global
+        )
         planned_paths[i] = form_new_path(planned_paths[i], new_path, split_t=current_timestep)
         reserve_path(i, planned_paths[i], t_start=current_timestep)
-
-    # if debug:
-    #     print("=====LOG===== replan reserve_vertices_table:", file=sys.stderr)
-    #     for t in sorted(reserve_vertices_table.keys()):
-    #         print(f"  t={t}: {reserve_vertices_table[t]}", file=sys.stderr)
-    #     print("=====LOG===== replan reserve_edges_table:", file=sys.stderr)
-    #     for t in sorted(reserve_edges_table.keys()):
-    #         print(f"  t={t}: {reserve_edges_table[t]}", file=sys.stderr)
 
     return planned_paths
 
@@ -383,19 +346,15 @@ def replan(agents: List[EnvAgent], rail: GridTransitionMap, current_timestep: in
 if __name__ == "__main__":
 
     if len(sys.argv) > 1:
-        remote_evaluator(get_path,sys.argv, replan = replan)
+        remote_evaluator(get_path, sys.argv, replan=replan)
     else:
         script_path = os.path.dirname(os.path.abspath(__file__))
         test_cases = glob.glob(os.path.join(script_path, "multi_test_case/level*_test_*.pkl"))
 
         if test_single_instance:
-            test_cases = glob.glob(os.path.join(script_path,"multi_test_case/level{}_test_{}.pkl".format(level, test)))
+            test_cases = glob.glob(os.path.join(script_path, "multi_test_case/level{}_test_{}.pkl".format(level, test)))
         elif test_single_level:
             test_cases = glob.glob(os.path.join(script_path, f"multi_test_case/level{level}_test_*.pkl"))
         test_cases.sort()
-        deadline_files =  [test.replace(".pkl",".ddl") for test in test_cases]
-        evaluator(get_path, test_cases, debug, visualizer, 3, deadline_files, replan = replan)
-
-
-
-
+        deadline_files = [test.replace(".pkl", ".ddl") for test in test_cases]
+        evaluator(get_path, test_cases, debug, visualizer, 3, deadline_files, replan=replan)
