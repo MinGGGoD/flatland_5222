@@ -23,10 +23,10 @@ debug = False
 visualizer = False
 
 # If you want to test on specific instance, turn test_single_instance to True and specify the level and test number
-test_single_instance = True
+test_single_instance = False
 test_single_level = True
-level = 5
-test = 4
+level = 2
+test = 7
 
 #########################
 # Reimplementing the content in get_path() function and replan() function.
@@ -116,10 +116,10 @@ def reserve_path(agent_id, path, t_start):
         reserve_vertices_table[t].setdefault(current, agent_id)
         reserve_vertices_table[t+1].setdefault(next, agent_id)
         reserve_edges_table[t].setdefault((current, next), agent_id)
-    goal = path[-1]
-    for t in range(len(path), max_timestep_global+1):
-        reserve_vertices_table.setdefault(t, {})
-        reserve_vertices_table[t].setdefault(goal, agent_id)
+    # goal = path[-1]
+    # for t in range(len(path), max_timestep_global+1):
+    #     reserve_vertices_table.setdefault(t, {})
+    #     reserve_vertices_table[t].setdefault(goal, agent_id)
 
 def form_new_path(old_path, new_path, split_t):
     """
@@ -338,8 +338,13 @@ def replan(agents: List[EnvAgent], rail: GridTransitionMap, current_timestep: in
         priorities = []
         for i,agent in enumerate(agents):
             ddl = getattr(agent, "deadline", None)
-            priorities.append((i, ddl if ddl is not None else max_timestep_global))
-        agent_order = [i for (i,_) in sorted(priorities, key=lambda x: x[1])] # * ignore manhattan for now
+            dist = manhattan_distance(agent.initial_position, agent.target)
+            slack = (ddl - dist) if ddl is not None else sys.maxsize
+            priorities.append((i, slack, dist))
+        # sort by slack ascending, then by dist ascending
+        agent_order = [aid for (aid,_,_) in sorted(priorities, key=lambda x: (x[1], x[2]))]
+        #     priorities.append((i, ddl if ddl is not None else max_timestep_global, slack, dist))
+        # agent_order = [i for (i,_) in sorted(priorities, key=lambda x: (x[1],x[2], x[3]))]
 
     # Replan by priority
     for i in [k for k in agent_order if k in to_replan]:
