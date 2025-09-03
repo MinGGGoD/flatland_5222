@@ -1,14 +1,18 @@
-
+# question3_sipp.py
 from typing import List
 from lib_piglet.utils.tools import eprint
 import glob, os, sys, time, json
 import heapq
+from functools import lru_cache 
 
-#import necessary modules that this python scripts need.
+# import necessary modules that this python scripts need.
 try:
     from flatland.core.transition_map import GridTransitionMap
     from flatland.envs.agent_utils import EnvAgent
-    from flatland.utils.controller import get_action, Train_Actions, Directions, check_conflict, path_controller, evaluator, remote_evaluator
+    from flatland.utils.controller import (
+        get_action, Train_Actions, Directions, check_conflict,
+        path_controller, evaluator, remote_evaluator
+    )
 except Exception as e:
     eprint("Cannot load flatland modules!")
     eprint(e)
@@ -17,67 +21,47 @@ except Exception as e:
 #########################
 # Debugger and visualizer options
 #########################
-
-# Set these debug option to True if you want more information printed
 debug = False
 visualizer = False
 
 # If you want to test on specific instance, turn test_single_instance to True and specify the level and test number
 test_single_instance = False
 test_single_level = True
-level = 2
-test = 7
+level = 6
+test = 6
 
 #########################
-# Reimplementing the content in get_path() function and replan() function.
-#
-# They both return a list of paths. A path is a list of (x,y) location tuples.
-# The path should be conflict free.
-# Hint, you could use some global variables to reuse many resources across get_path/replan frunction calls.
+# Globals
 #########################
-
-
-# Reservation tables
 reserve_vertices_table = {}   # t -> {(x,y): agent_id}
-reserve_edges_table = {}  # t -> {((current),(next)): agent_id}
-planned_paths = [] # Current paths for all agents (path[t]=(x,y))
-agent_order = [] # Planning order
+reserve_edges_table = {}      # t -> {((current),(next)): agent_id}
+planned_paths = []            # Current paths for all agents (path[t]=(x,y))
+agent_order = []              # Planning order
 max_timestep_global = 0
-
-# Congestion heuristic parameters
-CONGESTION_RADIUS = 2          # spatial radius (Manhattan)
-CONGESTION_TIME_WINDOW = 2     # time window around t
-CONGESTION_ALPHA = 0.4         # weight for congestion penalty in heuristic
 
 # ========== Tools functions ==========
 def manhattan_distance(pos1, pos2):
     """Calculate Manhattan distance between two positions"""
     return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
 
-def congestion_heuristic(location, timestep):
+def congestion_aware_heuristic(pos, goal, timestep, max_t):
     """
-    Compute a congestion-aware penalty around location at given timestep using
-    current reservation tables. This encourages paths to avoid crowded areas.
-
-    The penalty accumulates reservations in a spatial radius and temporal window
-    around (location, timestep), discounted by spatial and temporal distance.
+    heuristic function, considering congestion
     """
-    if not reserve_vertices_table:
-        return 0.0
-    lx, ly = location
-    total_penalty = 0.0
-    for dt in range(-CONGESTION_TIME_WINDOW, CONGESTION_TIME_WINDOW + 1):
-        t = timestep + dt
+    base_h = manhattan_distance(pos, goal)
+    
+    # calculate the congestion penalty around the goal position
+    congestion_penalty = 0
+    for t in range(timestep, min(timestep + base_h + 5, max_t)):
         rv = reserve_vertices_table.get(t, {})
-        if not rv:
-            continue
-        time_weight = 1.0 / (1 + abs(dt))
-        for (cx, cy) in rv.keys():
-            d = abs(cx - lx) + abs(cy - ly)
-            if d <= CONGESTION_RADIUS:
-                space_weight = 1.0 / (1 + d)
-                total_penalty += time_weight * space_weight
-    return CONGESTION_ALPHA * total_penalty
+        # check if the goal position and its surrounding are congested
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                check_pos = (goal[0] + dx, goal[1] + dy)
+                if check_pos in rv:
+                    congestion_penalty += 0.1
+    
+    return base_h + congestion_penalty
 
 def successors(rail, loc, direction):
     """
@@ -86,79 +70,61 @@ def successors(rail, loc, direction):
     """
     x, y = loc
     neighbors = []
-    valid = rail.get_transitions(x, y, direction) 
+    valid = rail.get_transitions(x, y, direction)
     order = [direction, (direction+1)%4, (direction+3)%4, (direction+2)%4]
     for d in order:
         if valid[d]:
-            next_x, next_y = x, y
-            if d == 0: next_x -= 1
-            elif d == 1: next_y += 1
-            elif d == 2: next_x += 1
-            elif d == 3: next_y -= 1
-            neighbors.append(((next_x, next_y), d))
-    # WAIT
+            nx, ny = x, y
+            if d == 0: nx -= 1
+            elif d == 1: ny += 1
+            elif d == 2: nx += 1
+            elif d == 3: ny -= 1
+            neighbors.append(((nx, ny), d))
+    # WAIT（SIPP 中我们会过滤掉显式 WAIT）
     neighbors.append(((x, y), direction))
     return neighbors
 
-def is_reserved(agent_id, current, next, t_next):
+def is_reserved(agent_id, current, nxt, t_next):
     """
     Check vertex conflict, edge conflicts (swap and overlap) at t_next.
-    Parameters:
-        agent_id: agent id.
-        current: current position at time t.
-        next: next position at time t_next.
-        t_next: next timestep.
     """
     # Vertex conflict
     rv = reserve_vertices_table.get(t_next, {})
-    if next in rv and rv[next] != agent_id:
+    if nxt in rv and rv[nxt] != agent_id:
         return True
- 
-    # Edge conflict
-    if t_next-1 in reserve_edges_table:
-        re = reserve_edges_table.get(t_next-1, {})
-        reverse = (next, current)
-        # next to current (swap)
-        if reverse in re and re[reverse] != agent_id:
-            return True
-        forward = (current, next)
-        # current to next (overlap)
-        if forward in re and re[forward] != agent_id:
-            return True
+    # Edge conflict (t_next-1 的边)
+    re = reserve_edges_table.get(t_next - 1, {})
+    # swap
+    if (nxt, current) in re and re[(nxt, current)] != agent_id:
+        return True
+    # overlap (同边同向占用)
+    if (current, nxt) in re and re[(current, nxt)] != agent_id:
+        return True
     return False
 
 def reserve_path(agent_id, path, t_start):
     """
     Update reservation table with path from t_start.
-    Parameters:
-        agent_id: agent id.
-        path: generated path per timestep.
-        t_start: start timestep for reservation.
     """
     if not path:
         return
     for t in range(t_start, min(len(path)-1, max_timestep_global)):
-        current = path[t]
-        next = path[t+1]
+        cur = path[t]
+        nxt = path[t+1]
         reserve_vertices_table.setdefault(t, {})
         reserve_vertices_table.setdefault(t+1, {})
         reserve_edges_table.setdefault(t, {})
-        reserve_vertices_table[t].setdefault(current, agent_id)
-        reserve_vertices_table[t+1].setdefault(next, agent_id)
-        reserve_edges_table[t].setdefault((current, next), agent_id)
-    # goal = path[-1]
-    # for t in range(len(path), max_timestep_global+1):
-    #     reserve_vertices_table.setdefault(t, {})
-    #     reserve_vertices_table[t].setdefault(goal, agent_id)
+        reserve_vertices_table[t].setdefault(cur, agent_id)
+        reserve_vertices_table[t+1].setdefault(nxt, agent_id)
+        reserve_edges_table[t].setdefault((cur, nxt), agent_id)
+
+    # clear cache every time reserve table is updated
+    build_safe_intervals_for_cell.cache_clear()
 
 def form_new_path(old_path, new_path, split_t):
     """
-    Use split_t as the index, keep the 0~split_t part of old_path, and concatenate the split_t~end part of new_path.
-
-    Parameters:
-        old_path: old_path.
-        new_path: new_path.
-        split_t: failed timestep.
+    Use split_t as the index, keep the 0~split_t part of old_path,
+    and concatenate the split_t~end part of new_path.
     """
     if split_t <= 0 or not old_path:
         return new_path
@@ -166,8 +132,7 @@ def form_new_path(old_path, new_path, split_t):
 
 def get_current_position(agent: EnvAgent):
     """
-    Get the agent current pose. 
-    Return ((x,y), direction).
+    Get the agent current pose. Return ((x,y), direction).
     """
     loc = getattr(agent, "position", None)
     if loc is None:
@@ -183,199 +148,276 @@ def malfunction_remaining(agent: EnvAgent) -> int:
     if malfunction_data and "malfunction" in malfunction_data:
         return int(malfunction_data["malfunction"])
 
-# ---------- Reconstruct path ----------
 def reconstruct_path_aligned(parents, goal_state_key, start_location, start_timestep, max_timestep):
-    """Reconstruct path from parents."""
-    location_by_timestep = {}
-    if goal_state_key is not None:
-        current_state = goal_state_key
-        reversed_states = []
-        while current_state is not None:
-            reversed_states.append(current_state)
-            current_state = parents[current_state]
-        reversed_states.reverse()
-        
-        # Map each timestep to its corresponding position
-        for (x, y, d, t) in reversed_states:
-            location_by_timestep[t] = (x, y)
-        last_timestep = max(location_by_timestep.keys())
-        last_location = location_by_timestep[last_timestep]
-        # Use last location to fill all timesteps
-        for t in range(last_timestep + 1, max_timestep + 1):
-            location_by_timestep[t] = last_location
-    else:
-        # No solution, use WAIT fill all timesteps
-        for t in range(start_timestep, max_timestep + 1):
-            location_by_timestep[t] = start_location
-            
-    # If waiting from start, use start location to fill all timesteps
-    for t in range(0, start_timestep):
-        location_by_timestep.setdefault(t, start_location)
-    return [location_by_timestep[t] for t in range(0, max_timestep + 1)]
+    """
+    backtrack parents to fill time gaps, ensuring every timestep has a position
+    """
+    T = int(max_timestep)
+    res = [start_location for _ in range(T + 1)]
 
+    if goal_state_key is None:
+        return res
 
-# ---------- Single-agent Time-based A*  ----------
+    # 回溯状态序列
+    seq = []
+    cur = goal_state_key
+    while cur is not None:
+        seq.append(cur)
+        cur = parents.get(cur, None)
+    seq.reverse()
+
+    last_loc = start_location
+    last_t = max(0, min(start_timestep, T))
+
+    for (x, y, d, t) in seq:
+        t = int(t)
+        if t < 0:
+            continue
+        if t > T:
+            break
+        if t > last_t:
+            for tt in range(last_t, t):
+                res[tt] = last_loc
+        res[t] = (x, y)
+        last_loc = (x, y)
+        last_t = t + 1
+
+    if last_t <= T:
+        for tt in range(last_t, T + 1):
+            res[tt] = last_loc
+
+    return res
+
+def _merge_into_intervals(blocked_times, max_t):
+    """
+    build safe intervals from blocked times
+    """
+    intervals = []
+    start = 0
+    for bt in blocked_times:
+        if bt < 0 or bt > max_t:
+            continue
+        if bt >= start:
+            if bt - 1 >= start:
+                intervals.append((start, bt - 1))
+            start = bt + 1
+    if start <= max_t:
+        intervals.append((start, max_t))
+    return intervals
+
+@lru_cache(maxsize=None)
+def build_safe_intervals_for_cell(cell, max_t):
+    """
+    build safe intervals from reserve_vertices_table
+    """
+    blocked = sorted(t for t, occ in reserve_vertices_table.items() if cell in occ)
+    return tuple(_merge_into_intervals(blocked, max_t))
+
+def earliest_safe_arrival(agent_id, cur_cell, cur_t, nxt_cell, max_t):
+    """
+    jump in safe intervals: wait in a safe interval of cur_cell, then move to a safe interval of nxt_cell
+    conditions:
+      - [cur_t, t_arr-1] must be in a safe interval of cur_cell (waiting)
+      - t_arr must be in a safe interval of nxt_cell
+      - (cur_cell -> nxt_cell) at t_arr must not conflict with reserved vertices/edges (含 swap/overlap)
+    return None if no feasible arrival time
+    """
+    cur_intervals = build_safe_intervals_for_cell(cur_cell, max_t)
+    nxt_intervals = build_safe_intervals_for_cell(nxt_cell, max_t)
+    if not cur_intervals or not nxt_intervals:
+        return None
+
+    arr0 = cur_t + 1  # earliest arrival time by one step move
+
+    # try to align the arrival time to a safe interval of nxt_cell
+    for (L, R) in nxt_intervals:
+        t_arr = max(arr0, L)
+        if t_arr > R:
+            continue
+        # if there is a conflict, roll forward
+        while t_arr <= R and is_reserved(agent_id, cur_cell, nxt_cell, t_arr):
+            t_arr += 1
+        if t_arr > R:
+            continue
+
+        # check if we can wait in cur_cell safely until t_arr-1
+        need_wait = t_arr - 1 - cur_t
+        if need_wait <= 0:
+            return t_arr
+        for (cl, cr) in cur_intervals:
+            if cur_t >= cl and (t_arr - 1) <= cr:
+                return t_arr
+
+    return None
+
+# ---------- Single-agent SIPP-lite ----------
 def single_agent_astar(agent_id, rail, start_location, start_direction, goal, start_timestep, max_t):
     """
-    Time-expanded A* with reservation table (single agent vs moving obstacles)
-
-    Parameters:
-        agent_id: agent id.
-        rail: grid environment.
-        start_location: start position.
-        start_direction: start direction.
-        goal: goal position.
-        start_timestep: start timestep (with delayed start).
-        max_t: maximum timestep.
+    time dimension jumps forward by "earliest reachable"
     """
     if debug:
         print(f"地图宽高: {rail.height}x{rail.width}")
+
+    start_intervals = build_safe_intervals_for_cell(start_location, max_t)
+    # if the start location is occupied at start_timestep, align the start time to the first safe time
+    if start_intervals:
+        t0 = start_timestep
+        for (li, ri) in start_intervals:
+            if ri < t0:
+                continue
+            if li > t0:
+                start_timestep = li
+            break
+
     open_heap = []
     start_key = (start_location[0], start_location[1], start_direction, start_timestep)
-    g_value = {start_key: 0}
-    # f = g + h
-    h0 = manhattan_distance(start_location, goal) + congestion_heuristic(start_location, start_timestep)
-    heapq.heappush(open_heap, (g_value[start_key] + h0, 0, *start_key, None))
+    g_value = {start_key: 0}  # g=elapsed time
     parents = {start_key: None}
+    heapq.heappush(open_heap, (g_value[start_key] + congestion_aware_heuristic(start_location, goal, start_timestep, max_t),
+                               0, *start_key, None))
     best_goal_state_key = None
 
-    # A*
     while open_heap:
         _, g_val, x, y, direction, timestep, parent = heapq.heappop(open_heap)
-        current_key = (x,y,direction,timestep)
-        if g_val != g_value.get(current_key, float('inf')):
+        cur_key = (x, y, direction, timestep)
+        if g_val != g_value.get(cur_key, float('inf')):
             continue
-        if parents[current_key] is None and parent is not None:
-            parents[current_key] = parent
+        if parents[cur_key] is None and parent is not None:
+            parents[cur_key] = parent
+
         if (x, y) == goal:
-            best_goal_state_key = current_key
+            best_goal_state_key = cur_key
             break
+
         if timestep >= max_t:
             continue
-        for (next_location, next_direction) in successors(rail, (x,y), direction):
-            next_x, next_y = next_location
-            n_timestep = timestep + 1
-            if is_reserved(agent_id, (x,y), (next_x,next_y), n_timestep):
+
+        for (next_location, next_direction) in successors(rail, (x, y), direction):
+            nx, ny = next_location
+            
+            # if it is a waiting action, only consider it when necessary (avoid infinite waiting)
+            if (nx, ny) == (x, y):
+                # only waiting when there is a conflict and the waiting time is less than 5 steps
+                if timestep >= max_t - 5:
+                    continue
+                wait_t = timestep + 1
+                if wait_t <= max_t and not is_reserved(agent_id, (x, y), (x, y), wait_t):
+                    nxt_key = (x, y, direction, wait_t)
+                    nxt_g = g_val + 1
+                    if nxt_g < g_value.get(nxt_key, float('inf')):
+                        g_value[nxt_key] = nxt_g
+                        h = congestion_aware_heuristic((x, y), goal, wait_t, max_t)
+                        heapq.heappush(open_heap, (nxt_g + h, nxt_g, x, y, direction, wait_t, cur_key))
+                        if nxt_key not in parents:
+                            parents[nxt_key] = cur_key
                 continue
-            next_key = (next_x,next_y,next_direction,n_timestep)
-            wait_penalty = 0.1 if (next_x == x and next_y == y) else 0
-            next_g_val = g_val + 1 + wait_penalty
-            if next_g_val < g_value.get(next_key, float('inf')):
-                g_value[next_key] = next_g_val
-                h_val  = manhattan_distance((next_x,next_y), goal) + congestion_heuristic((next_x, next_y), n_timestep)
-                heapq.heappush(open_heap, (next_g_val+h_val, next_g_val, next_x, next_y, next_direction, n_timestep, current_key))
-                if next_key not in parents:
-                    parents[next_key] = current_key
 
-    # Reconstruct path
-    return reconstruct_path_aligned(parents, best_goal_state_key, start_location, start_timestep, max_t)
+            t_arr = earliest_safe_arrival(agent_id, (x, y), timestep, (nx, ny), max_t)
+            if t_arr is None or t_arr > max_t:
+                continue
 
+            nxt_key = (nx, ny, next_direction, t_arr)
+            step_cost = t_arr - timestep
+            nxt_g = g_val + step_cost
+            if nxt_g < g_value.get(nxt_key, float('inf')):
+                g_value[nxt_key] = nxt_g
+                h = congestion_aware_heuristic((nx, ny), goal, t_arr, max_t)
+                heapq.heappush(open_heap, (nxt_g + h, nxt_g, nx, ny, next_direction, t_arr, cur_key))
+                if nxt_key not in parents:
+                    parents[nxt_key] = cur_key
 
+    path = reconstruct_path_aligned(parents, best_goal_state_key, start_location, start_timestep, max_t)
+    
+    # if no path found, try to extend the time limit for the second search
+    if best_goal_state_key is None and max_t < 500:
+        if debug:
+            print(f"Agent {agent_id}: 第一次搜索失败，尝试扩展时间限制...")
+        extended_max_t = min(max_t * 2, 500)
+        return single_agent_astar(agent_id, rail, start_location, start_direction, goal, start_timestep, extended_max_t)
+    
+    return path
+
+# ---------- Multi-agent ----------
 def get_path(agents: List[EnvAgent], rail: GridTransitionMap, max_timestep: int):
     """
     Multi-agent planning: plan in order and update reservation table.
-
-    Parameters:
-        agents: agents list.
-        rail: grid environment.
-        max_timestep: maximum timestep.
     """
     global reserve_vertices_table, reserve_edges_table, planned_paths, agent_order, max_timestep_global
-    # Initialize global variables
     max_timestep_global = int(max_timestep)
+
     reserve_vertices_table.clear()
     reserve_edges_table.clear()
-    
-    # Initialize paths for all agents
+    # clear cache every time reserve table is updated
+    build_safe_intervals_for_cell.cache_clear()
+
     planned_paths = [[] for _ in range(len(agents))]
 
-    # Priority rule: deadline (ascending), then by Manhattan distance to goal (ascending)
-    priorities = [] # (agent_id, deadline, Manhattan distance)
-    for agent_id,agent in enumerate(agents):
+    # priority strategy: first by slack ascending, then by distance ascending
+    priorities = []
+    for aid, agent in enumerate(agents):
         start = agent.initial_position
         goal = agent.target
         ddl = getattr(agent, "deadline", None)
         dist = manhattan_distance(start, goal)
-        # ddl - dist
         slack = (ddl - dist) if ddl is not None else sys.maxsize
-        priorities.append((agent_id, slack, dist))
-        # sort by slack ascending, then by dist ascending
-    agent_order = [aid for (aid,_,_) in sorted(priorities, key=lambda x: (x[1], x[2]))]
-    #     priorities.append((agent_id, ddl if ddl is not None else max_timestep_global, manhattan_distance(start, goal)))
-    # agent_order = [agent_id for (agent_id,_,_) in sorted(priorities, key=lambda x: (x[1], x[2]))]
+        priorities.append((aid, slack, dist))
+    agent_order = [aid for (aid, _, _) in sorted(priorities, key=lambda x: (x[1], x[2]))]
 
-    for agent_id in agent_order:
-        agent = agents[agent_id]
-        path_i = single_agent_astar(agent_id, rail, agent.initial_position, agent.initial_direction, agent.target, start_timestep=0, max_t=max_timestep_global)
-        planned_paths[agent_id] = path_i
-        reserve_path(agent_id, path_i, t_start=0) # update reservation table
-
-    # if debug:
-    #     print("=====LOG===== reserve_vertices_table:", file=sys.stderr)
-    #     for t in sorted(reserve_vertices_table.keys()):
-    #         print(f"  t={t}: {reserve_vertices_table[t]}", file=sys.stderr)
-    #     print("=====LOG===== reserve_edges_table:", file=sys.stderr)
-    #     for t in sorted(reserve_edges_table.keys()):
-    #         print(f"  t={t}: {reserve_edges_table[t]}", file=sys.stderr)
+    for aid in agent_order:
+        agent = agents[aid]
+        path_i = single_agent_astar(aid, rail, agent.initial_position, agent.initial_direction,
+                                    agent.target, start_timestep=0, max_t=max_timestep_global)
+        planned_paths[aid] = path_i
+        reserve_path(aid, path_i, t_start=0)
 
     return planned_paths
 
-
-def replan(agents: List[EnvAgent], rail: GridTransitionMap, current_timestep: int, 
+def replan(agents: List[EnvAgent], rail: GridTransitionMap, current_timestep: int,
            existing_paths, max_timestep: int, new_malfunction_agents, failed_agents):
     """
     Cache paths and replan new paths for malfunction agents or failed agents.
-
-    Parameters:
-        agents: agents list.
-        rail: grid environment.
-        current_timestep: at which timestep during the execution, the replan function is called.
-        existing_paths: the paths from the previous get_path/replan function call
-        max_timestep: maximum timestep.
-        new_malfunction_agents: a list of ids of agents that have a new malfunction happens at the current time step.
-        failed_agents: a list of ids of agents that failed to reach their intended location at the current timestep.
     """
     global reserve_vertices_table, reserve_edges_table, planned_paths, agent_order, max_timestep_global
-    # Initialize global variables
     max_timestep_global = int(max_timestep)
     planned_paths = existing_paths
 
-    # Rebuild reservation table, keep history for t<current_timestep
+    # Rebuild reservation table (history t < current_timestep)
     reserve_vertices_table = {}
     reserve_edges_table = {}
     current_timestep = int(current_timestep)
+
     for i in range(len(agents)):
         plan = planned_paths[i]
-        for t in range(0, current_timestep):
-            current = plan[t]
-            next = plan[t+1]
-            reserve_vertices_table.setdefault(t, {})
-            reserve_vertices_table.setdefault(t+1, {})
-            reserve_edges_table.setdefault(t, {})
-            reserve_vertices_table[t][current] = i
-            reserve_vertices_table[t+1][next] = i
-            reserve_edges_table[t][(current, next)] = i
+        if not plan or len(plan) < 2:
+            continue
+        T = min(current_timestep, len(plan) - 1)
+        for t in range(0, T):
+            cur = plan[t]
+            nxt = plan[t+1]
+            reserve_vertices_table.setdefault(t, {})[cur] = i
+            reserve_vertices_table.setdefault(t+1, {})[nxt] = i
+            reserve_edges_table.setdefault(t, {})[(cur, nxt)] = i
 
-    to_replan = set(new_malfunction_agents) | set(failed_agents) # agents that need replanning
+    build_safe_intervals_for_cell.cache_clear()
+
+    to_replan = set(new_malfunction_agents) | set(failed_agents)
 
     # Update reservation table for normal agents
     for i in range(len(agents)):
         if i in to_replan:
             continue
-        reserve_path(i, planned_paths[i], t_start=current_timestep)
+        reserve_path(i, planned_paths[i], t_start=current_timestep)  # 自动 cache_clear
 
-    # Setup priority order
     if not agent_order:
         priorities = []
-        for i,agent in enumerate(agents):
+        for i, agent in enumerate(agents):
             ddl = getattr(agent, "deadline", None)
             dist = manhattan_distance(agent.initial_position, agent.target)
-            slack = (ddl - dist) if ddl is not None else sys.maxsize
-            priorities.append((i, slack, dist))
-        # sort by slack ascending, then by dist ascending
-        agent_order = [aid for (aid,_,_) in sorted(priorities, key=lambda x: (x[1], x[2]))]
-        #     priorities.append((i, ddl if ddl is not None else max_timestep_global, slack, dist))
-        # agent_order = [i for (i,_) in sorted(priorities, key=lambda x: (x[1],x[2], x[3]))]
+            cur_pos, _ = get_current_position(agent)
+            cur_dist = manhattan_distance(cur_pos, agent.target)  
+            slack = (ddl - cur_dist) if ddl is not None else sys.maxsize 
+            priorities.append((i, slack, dist, cur_dist))
+        agent_order = [aid for (aid, _, _, _) in sorted(priorities, key=lambda x: (x[1], x[3]))]
 
     # Replan by priority
     for i in [k for k in agent_order if k in to_replan]:
@@ -383,50 +425,39 @@ def replan(agents: List[EnvAgent], rail: GridTransitionMap, current_timestep: in
         cur_loc, cur_dir = get_current_position(agent)
         wait_steps = malfunction_remaining(agent) if i in new_malfunction_agents else 0
 
-        # waiting for malfunction
+        # occupy the position during waiting (self-loop edge)
         for k in range(wait_steps):
             t = current_timestep + k
-            reserve_vertices_table.setdefault(t, {})
-            reserve_vertices_table[t][cur_loc] = i
-            if t-1 >= 0: # edge circle, stay at the same location
-                reserve_edges_table.setdefault(t-1, {})
-                reserve_edges_table[t-1][(cur_loc, cur_loc)] = i
+            reserve_vertices_table.setdefault(t, {})[cur_loc] = i
+            if t-1 >= 0:
+                reserve_edges_table.setdefault(t-1, {})[(cur_loc, cur_loc)] = i
 
         new_start_timestep = current_timestep + wait_steps
-        new_path = single_agent_astar(i, rail, cur_loc, cur_dir, agent.target, start_timestep=new_start_timestep, max_t=max_timestep_global)
-        planned_paths[i] = form_new_path(planned_paths[i], new_path, split_t=current_timestep)
-        reserve_path(i, planned_paths[i], t_start=current_timestep)
 
-    # if debug:
-    #     print("=====LOG===== replan reserve_vertices_table:", file=sys.stderr)
-    #     for t in sorted(reserve_vertices_table.keys()):
-    #         print(f"  t={t}: {reserve_vertices_table[t]}", file=sys.stderr)
-    #     print("=====LOG===== replan reserve_edges_table:", file=sys.stderr)
-    #     for t in sorted(reserve_edges_table.keys()):
-    #         print(f"  t={t}: {reserve_edges_table[t]}", file=sys.stderr)
+        new_path = single_agent_astar(
+            i, rail, cur_loc, cur_dir, agent.target,
+            start_timestep=new_start_timestep, max_t=max_timestep_global
+        )
+        planned_paths[i] = form_new_path(planned_paths[i], new_path, split_t=current_timestep)
+        reserve_path(i, planned_paths[i], t_start=current_timestep)  # 自动 cache_clear
 
     return planned_paths
 
 #####################################################################
-# Instantiate a Remote Client
-# You should not modify codes below, unless you want to modify test_cases to test specific instance.
+# Entrypoint
 #####################################################################
 if __name__ == "__main__":
-
     if len(sys.argv) > 1:
-        remote_evaluator(get_path,sys.argv, replan = replan)
+        remote_evaluator(get_path, sys.argv, replan=replan)
     else:
         script_path = os.path.dirname(os.path.abspath(__file__))
         test_cases = glob.glob(os.path.join(script_path, "multi_test_case/level*_test_*.pkl"))
 
         if test_single_instance:
-            test_cases = glob.glob(os.path.join(script_path,"multi_test_case/level{}_test_{}.pkl".format(level, test)))
+            test_cases = glob.glob(os.path.join(script_path, f"multi_test_case/level{level}_test_{test}.pkl"))
         elif test_single_level:
             test_cases = glob.glob(os.path.join(script_path, f"multi_test_case/level{level}_test_*.pkl"))
+
         test_cases.sort()
-        deadline_files =  [test.replace(".pkl",".ddl") for test in test_cases]
-        evaluator(get_path, test_cases, debug, visualizer, 3, deadline_files, replan = replan)
-
-
-
-
+        deadline_files = [test.replace(".pkl", ".ddl") for test in test_cases]
+        evaluator(get_path, test_cases, debug, visualizer, 3, deadline_files, replan=replan)
