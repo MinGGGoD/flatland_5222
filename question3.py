@@ -24,8 +24,8 @@ visualizer = False
 
 # If you want to test on specific instance, turn test_single_instance to True and specify the level and test number
 test_single_instance = False
-test_single_level = True
-level = 5
+test_single_level = False
+level = 1
 test = 0
 # 0,6
 #########################
@@ -146,6 +146,23 @@ def malfunction_remaining(agent: EnvAgent) -> int:
     if malfunction_data and "malfunction" in malfunction_data:
         return int(malfunction_data["malfunction"])
 
+
+def in_bounds(rail, pos):
+    if pos is None: 
+        return False
+    x, y = pos
+    return 0 <= x < rail.height and 0 <= y < rail.width
+
+def safe_grid_value(grid, pos, default=10**9):
+    # grid is dist_map（height x width）
+    if pos is None:
+        return default
+    x, y = pos
+    if 0 <= x < len(grid) and 0 <= y < len(grid[0]):
+        return grid[x][y]
+    return default
+
+
 from collections import deque
 
 # 全局缓存距离图
@@ -153,11 +170,15 @@ distance_map_cache = {}
 
 def get_distance_map(rail, goal):
     global distance_map_cache
-    key = (goal[0], goal[1])
+    key = (goal[0], goal[1]) if goal is not None else ("none","none")
     if key in distance_map_cache:
         return distance_map_cache[key]
-    
+
     dist_map = [[10**9] * rail.width for _ in range(rail.height)]
+    if goal is None or not in_bounds(rail, goal):
+        distance_map_cache[key] = dist_map
+        return dist_map
+
     q = deque()
     dist_map[goal[0]][goal[1]] = 0
     q.append(goal)
@@ -262,7 +283,9 @@ def single_agent_astar(agent_id, rail, start_location, start_direction, goal, st
             next_g_val = g_val + 1
             if next_g_val < g_value.get(next_key, float('inf')):
                 g_value[next_key] = next_g_val
-                h_val  = manhattan_distance((next_x,next_y), goal)
+                # h_val  = manhattan_distance((next_x,next_y), goal)
+                h_val = safe_grid_value(dist_map, (next_x, next_y), default=manhattan_distance((next_x, next_y), goal))
+
                 heapq.heappush(open_heap, (next_g_val+h_val, next_g_val, next_x, next_y, next_direction, n_timestep, current_key))
                 if next_key not in parents:
                     parents[next_key] = current_key
@@ -280,6 +303,8 @@ def get_path(agents: List[EnvAgent], rail: GridTransitionMap, max_timestep: int)
         rail: grid environment.
         max_timestep: maximum timestep.
     """
+    global distance_map_cache
+    distance_map_cache = {}
     global reserve_vertices_table, reserve_edges_table, planned_paths, agent_order, max_timestep_global
     # Initialize global variables
     max_timestep_global = int(max_timestep)
@@ -295,7 +320,12 @@ def get_path(agents: List[EnvAgent], rail: GridTransitionMap, max_timestep: int)
         start = agent.initial_position
         goal = agent.target
         ddl = getattr(agent, "deadline", None)
-        est_distance = get_distance_map(rail, goal)[start[0]][start[1]]
+        dist_map = get_distance_map(rail, goal)
+        if in_bounds(rail, start):
+            est_distance = safe_grid_value(dist_map, start, default=manhattan_distance(start, goal if goal else start))
+        else:
+            # invalid start
+            est_distance = 10**8
         priorities.append((agent_id, ddl if ddl is not None else max_timestep_global, est_distance))
     agent_order = [agent_id for (agent_id,_,_) in sorted(priorities, key=lambda x: (x[1], x[2]))]
 
@@ -357,7 +387,11 @@ def replan(agents: List[EnvAgent], rail: GridTransitionMap, current_timestep: in
     for i,agent in enumerate(agents):
         cur_loc, _ = get_current_position(agent)
         ddl = getattr(agent, "deadline", None)
-        est_distance = get_distance_map(rail, agent.target)[cur_loc[0]][cur_loc[1]]
+        # Check bounds before accessing distance map
+        if cur_loc[0] >= 0 and cur_loc[0] < rail.height and cur_loc[1] >= 0 and cur_loc[1] < rail.width:
+            est_distance = get_distance_map(rail, agent.target)[cur_loc[0]][cur_loc[1]]
+        else:
+            est_distance = manhattan_distance(cur_loc, agent.target)  # fallback to Manhattan distance
         priorities.append((i, ddl if ddl is not None else max_timestep_global, est_distance))
     agent_order = [i for (i,_,_) in sorted(priorities, key=lambda x: (x[1], x[2]))]
 
