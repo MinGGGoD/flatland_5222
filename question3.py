@@ -1,4 +1,3 @@
-
 from typing import List
 from lib_piglet.utils.tools import eprint
 import glob, os, sys, time, json
@@ -145,7 +144,7 @@ def malfunction_remaining(agent: EnvAgent) -> int:
     malfunction_data = getattr(agent, "malfunction_data", None)
     if malfunction_data and "malfunction" in malfunction_data:
         return int(malfunction_data["malfunction"])
-
+    return 0
 
 def in_bounds(rail, pos):
     if pos is None: 
@@ -165,7 +164,7 @@ def safe_grid_value(grid, pos, default=10**9):
 
 from collections import deque
 
-# 全局缓存距离图
+# Global cache for distance maps
 distance_map_cache = {}
 
 def get_distance_map(rail, goal):
@@ -203,6 +202,28 @@ def get_distance_map(rail, goal):
     distance_map_cache[key] = dist_map
     return dist_map
 
+def calculate_agent_priority(agent_id, agent, rail, current_timestep=0):
+    """
+    Calculate priority for agent planning order.
+    Returns tuple for sorting: (slack_time, deadline, estimated_distance)
+    Lower values = higher priority
+    """
+    if current_timestep == 0:
+        start = agent.initial_position
+    else:
+        start, _ = get_current_position(agent)
+    
+    goal = agent.target
+    deadline = getattr(agent, "deadline", max_timestep_global)
+    
+    # Get minimum distance to goal
+    dist_map = get_distance_map(rail, goal)
+    min_path_length = safe_grid_value(dist_map, start, default=manhattan_distance(start, goal))
+    
+    # Calculate slack time (negative means likely to be late)
+    slack = deadline - (current_timestep + min_path_length)
+    
+    return (slack, deadline, min_path_length)
 
 # ---------- Reconstruct path ----------
 def reconstruct_path_aligned(parents, goal_state_key, start_location, start_timestep, max_timestep):
@@ -235,10 +256,10 @@ def reconstruct_path_aligned(parents, goal_state_key, start_location, start_time
     return [location_by_timestep[t] for t in range(0, max_timestep + 1)]
 
 
-# ---------- Single-agent Time-based A*  ----------
-def single_agent_astar(agent_id, rail, start_location, start_direction, goal, start_timestep, max_t):
+# ---------- Single-agent Time-based A* with deadline awareness ----------
+def single_agent_astar(agent_id, rail, start_location, start_direction, goal, deadline, start_timestep, max_t):
     """
-    Time-expanded A* with reservation table (single agent vs moving obstacles)
+    Time-expanded A* with reservation table and deadline awareness
 
     Parameters:
         agent_id: agent id.
@@ -246,18 +267,32 @@ def single_agent_astar(agent_id, rail, start_location, start_direction, goal, st
         start_location: start position.
         start_direction: start direction.
         goal: goal position.
+        deadline: agent's deadline.
         start_timestep: start timestep (with delayed start).
         max_t: maximum timestep.
     """
     dist_map = get_distance_map(rail, goal)
-    def heuristic(pos):
-        return dist_map[pos[0]][pos[1]]
+    
+    def deadline_aware_heuristic(pos, timestep):
+        """Heuristic that considers both distance and deadline pressure"""
+        spatial_dist = safe_grid_value(dist_map, pos, default=manhattan_distance(pos, goal))
+        
+        # If we're likely to miss deadline, add penalty equivalent to delay cost
+        estimated_arrival = timestep + spatial_dist
+        if estimated_arrival > deadline:
+            # Penalty is 2 * delayed_timesteps according to assignment
+            delay_penalty = 2 * (estimated_arrival - deadline)
+            return spatial_dist + delay_penalty
+        
+        # Small bonus for being early (encourages faster completion)
+        early_bonus = max(0, deadline - estimated_arrival) * 0.1
+        return spatial_dist - early_bonus
     
     open_heap = []
     start_key = (start_location[0], start_location[1], start_direction, start_timestep)
     g_value = {start_key: 0}
     # f = g + h
-    heapq.heappush(open_heap, (g_value[start_key] + heuristic(start_location), 0, *start_key, None))
+    heapq.heappush(open_heap, (g_value[start_key] + deadline_aware_heuristic(start_location, start_timestep), 0, *start_key, None))
     parents = {start_key: None}
     best_goal_state_key = None
 
@@ -274,6 +309,7 @@ def single_agent_astar(agent_id, rail, start_location, start_direction, goal, st
             break
         if timestep >= max_t:
             continue
+        
         for (next_location, next_direction) in successors(rail, (x,y), direction):
             next_x, next_y = next_location
             n_timestep = timestep + 1
@@ -283,9 +319,7 @@ def single_agent_astar(agent_id, rail, start_location, start_direction, goal, st
             next_g_val = g_val + 1
             if next_g_val < g_value.get(next_key, float('inf')):
                 g_value[next_key] = next_g_val
-                # h_val  = manhattan_distance((next_x,next_y), goal)
-                h_val = safe_grid_value(dist_map, (next_x, next_y), default=manhattan_distance((next_x, next_y), goal))
-
+                h_val = deadline_aware_heuristic((next_x, next_y), n_timestep)
                 heapq.heappush(open_heap, (next_g_val+h_val, next_g_val, next_x, next_y, next_direction, n_timestep, current_key))
                 if next_key not in parents:
                     parents[next_key] = current_key
@@ -296,7 +330,7 @@ def single_agent_astar(agent_id, rail, start_location, start_direction, goal, st
 
 def get_path(agents: List[EnvAgent], rail: GridTransitionMap, max_timestep: int):
     """
-    Multi-agent planning: plan in order and update reservation table.
+    Multi-agent planning with deadline-aware priority ordering.
 
     Parameters:
         agents: agents list.
@@ -314,24 +348,28 @@ def get_path(agents: List[EnvAgent], rail: GridTransitionMap, max_timestep: int)
     # Initialize paths for all agents
     planned_paths = [[] for _ in range(len(agents))]
 
-    # Priority rule: deadline (ascending), then by Manhattan distance to goal (ascending)
-    priorities = [] # (agent_id, deadline, Manhattan distance)
-    for agent_id,agent in enumerate(agents):
-        start = agent.initial_position
-        goal = agent.target
-        ddl = getattr(agent, "deadline", None)
-        dist_map = get_distance_map(rail, goal)
-        if in_bounds(rail, start):
-            est_distance = safe_grid_value(dist_map, start, default=manhattan_distance(start, goal if goal else start))
-        else:
-            # invalid start
-            est_distance = 10**8
-        priorities.append((agent_id, ddl if ddl is not None else max_timestep_global, est_distance))
-    agent_order = [agent_id for (agent_id,_,_) in sorted(priorities, key=lambda x: (x[1], x[2]))]
+    # Priority: agents with least slack time first (most urgent)
+    priorities = []
+    for agent_id, agent in enumerate(agents):
+        priority_tuple = calculate_agent_priority(agent_id, agent, rail, current_timestep=0)
+        priorities.append((agent_id, *priority_tuple))
+    
+    # Sort by slack (ascending), then deadline (ascending), then distance (ascending)
+    agent_order = [agent_id for (agent_id, slack, deadline, dist) in sorted(priorities, key=lambda x: (x[1], x[2], x[3]))]
 
     for agent_id in agent_order:
         agent = agents[agent_id]
-        path_i = single_agent_astar(agent_id, rail, agent.initial_position, agent.initial_direction, agent.target, start_timestep=0, max_t=max_timestep_global)
+        deadline = getattr(agent, "deadline", max_timestep_global)
+        path_i = single_agent_astar(
+            agent_id, 
+            rail, 
+            agent.initial_position, 
+            agent.initial_direction, 
+            agent.target, 
+            deadline,
+            start_timestep=0, 
+            max_t=max_timestep_global
+        )
         planned_paths[agent_id] = path_i
         reserve_path(agent_id, path_i, t_start=0) # update reservation table
         
@@ -341,7 +379,7 @@ def get_path(agents: List[EnvAgent], rail: GridTransitionMap, max_timestep: int)
 def replan(agents: List[EnvAgent], rail: GridTransitionMap, current_timestep: int, 
            existing_paths, max_timestep: int, new_malfunction_agents, failed_agents):
     """
-    Cache paths and replan new paths for malfunction agents or failed agents.
+    Deadline-aware replanning for malfunction agents or failed agents.
 
     Parameters:
         agents: agents list.
@@ -356,62 +394,70 @@ def replan(agents: List[EnvAgent], rail: GridTransitionMap, current_timestep: in
     # Initialize global variables
     max_timestep_global = int(max_timestep)
     planned_paths = existing_paths
+    current_timestep = int(current_timestep)
 
     # Rebuild reservation table, keep history for t<current_timestep
     reserve_vertices_table = {}
     reserve_edges_table = {}
-    current_timestep = int(current_timestep)
+    
     for i in range(len(agents)):
         plan = planned_paths[i]
         for t in range(0, current_timestep):
-            current = plan[t]
-            next = plan[t+1]
-            reserve_vertices_table.setdefault(t, {})
-            reserve_vertices_table.setdefault(t+1, {})
-            reserve_edges_table.setdefault(t, {})
-            reserve_vertices_table[t][current] = i
-            reserve_vertices_table[t+1][next] = i
-            reserve_edges_table[t][(current, next)] = i
+            if t < len(plan) - 1:
+                current = plan[t]
+                next = plan[t+1]
+                reserve_vertices_table.setdefault(t, {})
+                reserve_vertices_table.setdefault(t+1, {})
+                reserve_edges_table.setdefault(t, {})
+                reserve_vertices_table[t][current] = i
+                reserve_vertices_table[t+1][next] = i
+                reserve_edges_table[t][(current, next)] = i
 
     to_replan = set(new_malfunction_agents) | set(failed_agents) # agents that need replanning
 
-    # Update reservation table for normal agents
+    # Update reservation table for normal agents (not being replanned)
     for i in range(len(agents)):
         if i in to_replan:
             continue
         reserve_path(i, planned_paths[i], t_start=current_timestep)
 
-    # Setup priority order
-    # if not agent_order:
+    # Calculate priorities for replanning - focus on most urgent agents first
     priorities = []
-    for i,agent in enumerate(agents):
-        cur_loc, _ = get_current_position(agent)
-        ddl = getattr(agent, "deadline", None)
-        # Check bounds before accessing distance map
-        if cur_loc[0] >= 0 and cur_loc[0] < rail.height and cur_loc[1] >= 0 and cur_loc[1] < rail.width:
-            est_distance = get_distance_map(rail, agent.target)[cur_loc[0]][cur_loc[1]]
-        else:
-            est_distance = manhattan_distance(cur_loc, agent.target)  # fallback to Manhattan distance
-        priorities.append((i, ddl if ddl is not None else max_timestep_global, est_distance))
-    agent_order = [i for (i,_,_) in sorted(priorities, key=lambda x: (x[1], x[2]))]
+    for i in range(len(agents)):
+        if i in to_replan:
+            priority_tuple = calculate_agent_priority(i, agents[i], rail, current_timestep)
+            priorities.append((i, *priority_tuple))
+    
+    # Sort by urgency: negative slack first (already late), then by slack, deadline, distance
+    replan_order = [i for (i, slack, deadline, dist) in sorted(priorities, key=lambda x: (x[1], x[2], x[3]))]
 
     # Replan by priority
-    for i in [k for k in agent_order if k in to_replan]:
+    for i in replan_order:
         agent = agents[i]
         cur_loc, cur_dir = get_current_position(agent)
+        deadline = getattr(agent, "deadline", max_timestep_global)
         wait_steps = malfunction_remaining(agent) if i in new_malfunction_agents else 0
 
-        # waiting for malfunction
+        # Reserve waiting positions during malfunction
         for k in range(wait_steps):
             t = current_timestep + k
             reserve_vertices_table.setdefault(t, {})
             reserve_vertices_table[t][cur_loc] = i
-            if t-1 >= 0: # edge circle, stay at the same location
+            if t > 0: # edge reservation, stay at the same location
                 reserve_edges_table.setdefault(t-1, {})
                 reserve_edges_table[t-1][(cur_loc, cur_loc)] = i
 
         new_start_timestep = current_timestep + wait_steps
-        new_path = single_agent_astar(i, rail, cur_loc, cur_dir, agent.target, start_timestep=new_start_timestep, max_t=max_timestep_global)
+        new_path = single_agent_astar(
+            i, 
+            rail, 
+            cur_loc, 
+            cur_dir, 
+            agent.target, 
+            deadline,
+            start_timestep=new_start_timestep, 
+            max_t=max_timestep_global
+        )
         planned_paths[i] = form_new_path(planned_paths[i], new_path, split_t=current_timestep)
         reserve_path(i, planned_paths[i], t_start=current_timestep)
 
@@ -436,7 +482,3 @@ if __name__ == "__main__":
         test_cases.sort()
         deadline_files =  [test.replace(".pkl",".ddl") for test in test_cases]
         evaluator(get_path, test_cases, debug, visualizer, 3, deadline_files, replan = replan)
-
-
-
-
