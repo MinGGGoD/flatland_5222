@@ -32,8 +32,8 @@ visualizer = False
 # If you want to test on specific instance, turn test_single_instance to True and specify the level and test number
 test_single_instance = False
 test_single_level = False
-level = 2
-test = 4
+level = 1
+test = 5
 # 0,6
 #########################
 # Reimplementing the content in get_path() function and replan() function.
@@ -83,9 +83,42 @@ def successors(rail, loc, direction):
     return neighbors
 
 
+def is_following_too_close(agent_id, current, next, t_next, min_distance=2):
+    """
+    Check if following another agent too closely.
+    Maintains minimum distance behind another agent.
+    """
+    # Look ahead for min_distance steps
+    for dt in range(1, min_distance + 1):
+        future_t = t_next + dt
+        rv = reserve_vertices_table.get(future_t, {})
+        if next in rv and rv[next] != agent_id:
+            # Another agent will be at our next position in the near future
+            return True
+    return False
+
+def detect_deadlock_risk(agent_id, current, next, t_next, look_ahead=3):
+    """
+    Simple deadlock detection: check if we're entering a cycle of waiting agents.
+    """
+    # Check if we're about to enter a position where multiple agents are waiting
+    wait_count = 0
+    for dt in range(look_ahead):
+        t = t_next + dt
+        rv = reserve_vertices_table.get(t, {})
+        re = reserve_edges_table.get(t, {})
+        
+        # Count self-loops (waiting agents) near our target position
+        neighbors = [(next[0]+dx, next[1]+dy) for dx, dy in [(-1,0), (1,0), (0,-1), (0,1)]]
+        for pos in neighbors + [next]:
+            if pos in rv and (pos, pos) in re.get(t, {}):
+                wait_count += 1
+    
+    return wait_count >= 2  # Risk if multiple agents waiting nearby
+
 def is_reserved(agent_id, current, next, t_next):
     """
-    Check vertex conflict, edge conflicts (swap and overlap) at t_next.
+    Enhanced conflict checking with multiple conflict types.
     Parameters:
         agent_id: agent id.
         current: current position at time t.
@@ -102,6 +135,15 @@ def is_reserved(agent_id, current, next, t_next):
     reverse = (next, current)
     if reverse in re and re[reverse] != agent_id:
         return True
+    
+    # Following too close
+    if is_following_too_close(agent_id, current, next, t_next):
+        return True
+    
+    # Deadlock risk
+    if detect_deadlock_risk(agent_id, current, next, t_next):
+        return True
+        
     return False
 
 
@@ -124,10 +166,10 @@ def reserve_path(agent_id, path, t_start):
         reserve_vertices_table[t].setdefault(current, agent_id)
         reserve_vertices_table[t + 1].setdefault(next, agent_id)
         reserve_edges_table[t].setdefault((current, next), agent_id)
-    goal = path[-1]
-    for t in range(len(path), max_timestep_global + 1):
-        reserve_vertices_table.setdefault(t, {})
-        reserve_vertices_table[t].setdefault(goal, agent_id)
+    # goal = path[-1]
+    # for t in range(len(path), max_timestep_global + 1):
+    #     reserve_vertices_table.setdefault(t, {})
+    #     reserve_vertices_table[t].setdefault(goal, agent_id)
 
 
 def form_new_path(old_path, new_path, split_t):
@@ -180,6 +222,33 @@ def safe_grid_value(grid, pos, default=10**9):
     if 0 <= x < len(grid) and 0 <= y < len(grid[0]):
         return grid[x][y]
     return default
+
+def is_junction(rail, pos):
+    """判断位置是否是交叉路口（多于一个可行方向）"""
+    x, y = pos
+    if not in_bounds(rail, pos):
+        return False
+    # 获取所有可能的方向
+    total_transitions = 0
+    for direction in range(4):
+        if sum(rail.get_transitions(x, y, direction)) > 0:
+            total_transitions += 1
+    return total_transitions > 1
+
+def predict_two_step_conflict(agent_id, rail, current, next_pos, direction, t_current):
+    """
+    如果从current移动到next_pos，然后在下一步所有可能动作都会冲突，则返回True
+    """
+    t1 = t_current + 1
+    t2 = t_current + 2
+    # 如果下一步是路口，则需要预测再下一步是否会发生冲突
+    if is_junction(rail, next_pos):
+        # 在next_pos方向direction下生成可能后继
+        successors2 = successors(rail, next_pos, direction)
+        for pos2, dir2 in successors2:
+            if not is_reserved(agent_id, next_pos, pos2, t2):
+                return False
+    return True
 
 
 from collections import deque
@@ -287,8 +356,15 @@ def single_agent_astar(
     g_value = {start_key: 0}
     # f = g + h
     heapq.heappush(
-        open_heap, (g_value[start_key] + manhattan_distance(start_location, goal), 0, *start_key, None)
+        open_heap,
+        (
+            g_value[start_key] + manhattan_distance(start_location, goal),
+            0,
+            *start_key,
+            None,
+        ),
     )
+    # print(f'Initial A* with agent_id: [{agent_id}] start_location: {start_location} start_direction: {start_direction} goal: {goal} start_timestep: {start_timestep} max_t: {max_t}')
     parents = {start_key: None}
     best_goal_state_key = None
 
@@ -305,7 +381,14 @@ def single_agent_astar(
             break
         if timestep >= max_t:
             continue
+        possible_neighbors = successors(rail, (x, y), direction)
         for next_location, next_direction in successors(rail, (x, y), direction):
+            # 如果下一步是路口且两步后都会冲突，则跳过该移动
+            if predict_two_step_conflict(agent_id, rail, (x, y), next_location, next_direction, timestep):
+                # print(f'Predict two step conflict with agent_id: [{agent_id}] current: {(x, y)} next: {next_location} cur_timestep: {timestep}')
+                continue
+        
+        for next_location, next_direction in possible_neighbors:
             next_x, next_y = next_location
             if (
                 rail.is_dead_end(next_location)
@@ -321,12 +404,12 @@ def single_agent_astar(
             next_g_val = g_val + 1
             if next_g_val < g_value.get(next_key, float("inf")):
                 g_value[next_key] = next_g_val
-                # h_val  = manhattan_distance((next_x,next_y), goal)
-                h_val = safe_grid_value(
-                    dist_map,
-                    (next_x, next_y),
-                    default=manhattan_distance((next_x, next_y), goal),
-                )
+                h_val = manhattan_distance((next_x, next_y), goal)
+                # h_val = safe_grid_value(
+                #     dist_map,
+                #     (next_x, next_y),
+                #     default=manhattan_distance((next_x, next_y), goal),
+                # )
 
                 heapq.heappush(
                     open_heap,
@@ -380,7 +463,10 @@ def get_path(agents: List[EnvAgent], rail: GridTransitionMap, max_timestep: int)
         ddl_value = ddl if ddl is not None else max_timestep_global
         slack = ddl_value - est_distance
         priorities.append((agent_id, slack, ddl_value, est_distance))
-    agent_order = [agent_id for (agent_id, _, _, _) in sorted(priorities, key=lambda x: (x[1], x[2], x[3]))]
+    agent_order = [
+        agent_id
+        for (agent_id, _, _, _) in sorted(priorities, key=lambda x: (x[1], x[2], x[3]))
+    ]
 
     for agent_id in agent_order:
         agent = agents[agent_id]
@@ -464,7 +550,9 @@ def replan(
         ddl_value = ddl if ddl is not None else max_timestep_global
         slack = ddl_value - est_distance
         priorities.append((i, slack, ddl_value, est_distance))
-    agent_order = [i for (i, _, _, _) in sorted(priorities, key=lambda x: (x[1], x[2], x[3]))]
+    agent_order = [
+        i for (i, _, _, _) in sorted(priorities, key=lambda x: (x[1], x[2], x[3]))
+    ]
 
     # Replan by priority
     for i in [k for k in agent_order if k in to_replan]:
