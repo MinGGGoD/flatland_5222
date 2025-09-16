@@ -1,4 +1,5 @@
-from typing import List
+from typing import Dict, List, Optional, Tuple
+from collections import defaultdict
 from lib_piglet.utils.tools import eprint
 import glob, os, sys, time, json
 import heapq
@@ -44,153 +45,152 @@ test = 5
 #########################
 
 
-# Reservation tables
-reserve_vertices_table = {}  # t -> {(x,y): agent_id}
-reserve_edges_table = {}  # t -> {((current),(next)): agent_id}
-planned_paths = []  # Current paths for all agents (path[t]=(x,y))
-agent_order = []  # Planning order
+Position = Tuple[int, int]
+State = Tuple[int, int, int, int]
+
+
+class ReservationTable:
+    """Reservation table that stores vertex and edge reservations."""
+
+    def __init__(self) -> None:
+        self.max_timestep: int = 0
+        self.vertex: Dict[int, Dict[Position, int]] = defaultdict(dict)
+        self.edge: Dict[int, Dict[Tuple[Position, Position], int]] = defaultdict(dict)
+
+    def reset(self, max_timestep: int) -> None:
+        self.max_timestep = int(max_timestep)
+        self.vertex.clear()
+        self.edge.clear()
+
+    def reserve_vertex(self, agent_id: int, position: Position, timestep: int) -> None:
+        if timestep > self.max_timestep:
+            return
+        self.vertex[timestep][position] = agent_id
+
+    def reserve_edge(
+        self, agent_id: int, start: Position, end: Position, timestep: int
+    ) -> None:
+        if timestep > self.max_timestep:
+            return
+        self.edge[timestep][(start, end)] = agent_id
+
+    def is_conflict(
+        self, agent_id: int, current: Position, nxt: Position, next_timestep: int
+    ) -> bool:
+        if next_timestep > self.max_timestep:
+            return True
+        occupied = self.vertex.get(next_timestep, {}).get(nxt)
+        if occupied is not None and occupied != agent_id:
+            return True
+        if next_timestep > 0:
+            reverse = self.edge.get(next_timestep - 1, {}).get((nxt, current))
+            if reverse is not None and reverse != agent_id:
+                return True
+        return False
+
+    def reserve_history(
+        self, agent_id: int, path: List[Position], upto_timestep: int
+    ) -> None:
+        if not path:
+            return
+        end = min(upto_timestep, len(path) - 1, self.max_timestep)
+        for t in range(end):
+            cur = path[t]
+            nxt = path[t + 1]
+            self.reserve_vertex(agent_id, cur, t)
+            self.reserve_vertex(agent_id, nxt, t + 1)
+            self.reserve_edge(agent_id, cur, nxt, t)
+
+    def reserve_path(
+        self, agent_id: int, path: List[Position], start_timestep: int
+    ) -> None:
+        if not path:
+            return
+        end_time = min(len(path) - 1, self.max_timestep)
+        for t in range(start_timestep, end_time):
+            cur = path[t]
+            nxt = path[t + 1]
+            self.reserve_vertex(agent_id, cur, t)
+            self.reserve_vertex(agent_id, nxt, t + 1)
+            self.reserve_edge(agent_id, cur, nxt, t)
+        last_pos = path[end_time]
+        for t in range(max(start_timestep, end_time), self.max_timestep + 1):
+            self.reserve_vertex(agent_id, last_pos, t)
+            if t > 0:
+                self.reserve_edge(agent_id, last_pos, last_pos, t - 1)
+
+
+reservation_table = ReservationTable()
+planned_paths: List[List[Position]] = []
+agent_order: List[int] = []
 max_timestep_global = 0
 
 
 # ========== Tools functions ==========
-def manhattan_distance(pos1, pos2):
-    """Calculate Manhattan distance between two positions"""
+def manhattan_distance(pos1: Optional[Position], pos2: Optional[Position]) -> int:
+    """Calculate Manhattan distance between two positions."""
+
+    if pos1 is None or pos2 is None:
+        return 0
     return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
 
 
-def successors(rail, loc, direction):
-    """
-    Generate actions successors (next action).
-    Direction: 0: North, 1: East, 2: South, 3: West.
-    """
+def successors(rail: GridTransitionMap, loc: Position, direction: int):
+    """Generate successor states including waiting."""
+
     x, y = loc
     neighbors = []
     valid = rail.get_transitions(x, y, direction)
     for d in range(4):
         if valid[d]:
-            next_x, next_y = x, y
+            nx, ny = x, y
             if d == 0:
-                next_x -= 1
+                nx -= 1
             elif d == 1:
-                next_y += 1
+                ny += 1
             elif d == 2:
-                next_x += 1
+                nx += 1
             elif d == 3:
-                next_y -= 1
-            neighbors.append(((next_x, next_y), d))
-    # WAIT
+                ny -= 1
+            neighbors.append(((nx, ny), d))
     neighbors.append(((x, y), direction))
     return neighbors
 
 
-def is_following_too_close(agent_id, current, next, t_next, min_distance=2):
-    """
-    Check if following another agent too closely.
-    Maintains minimum distance behind another agent.
-    """
-    # Look ahead for min_distance steps
-    for dt in range(1, min_distance + 1):
-        future_t = t_next + dt
-        rv = reserve_vertices_table.get(future_t, {})
-        if next in rv and rv[next] != agent_id:
-            # Another agent will be at our next position in the near future
-            return True
-    return False
+def compute_safe_intervals(agent_id: int, pos: Position) -> List[Tuple[int, int]]:
+    """Return safe time intervals for a vertex excluding reservations by the same agent."""
 
-def detect_deadlock_risk(agent_id, current, next, t_next, look_ahead=3):
-    """
-    Simple deadlock detection: check if we're entering a cycle of waiting agents.
-    """
-    # Check if we're about to enter a position where multiple agents are waiting
-    wait_count = 0
-    for dt in range(look_ahead):
-        t = t_next + dt
-        rv = reserve_vertices_table.get(t, {})
-        re = reserve_edges_table.get(t, {})
-        
-        # Count self-loops (waiting agents) near our target position
-        neighbors = [(next[0]+dx, next[1]+dy) for dx, dy in [(-1,0), (1,0), (0,-1), (0,1)]]
-        for pos in neighbors + [next]:
-            if pos in rv and (pos, pos) in re.get(t, {}):
-                wait_count += 1
-    
-    return wait_count >= 2  # Risk if multiple agents waiting nearby
-
-def is_reserved(agent_id, current, next, t_next):
-    """
-    Enhanced conflict checking with multiple conflict types.
-    Parameters:
-        agent_id: agent id.
-        current: current position at time t.
-        next: next position at time t_next.
-        t_next: next timestep.
-    """
-    # Vertex conflict
-    rv = reserve_vertices_table.get(t_next, {})
-    if next in rv and rv[next] != agent_id:
-        return True
-
-    # Edge conflict (swap)
-    re = reserve_edges_table.get(t_next - 1, {})
-    reverse = (next, current)
-    if reverse in re and re[reverse] != agent_id:
-        return True
-    
-    # Following too close
-    if is_following_too_close(agent_id, current, next, t_next):
-        return True
-    
-    # Deadlock risk
-    if detect_deadlock_risk(agent_id, current, next, t_next):
-        return True
-        
-    return False
+    occupied = []
+    for t, pos_dict in reservation_table.vertex.items():
+        if pos_dict.get(pos) is not None and pos_dict[pos] != agent_id:
+            occupied.append(t)
+    occupied.sort()
+    intervals: List[Tuple[int, int]] = []
+    start = 0
+    for t in occupied:
+        if t - 1 >= start:
+            intervals.append((start, t - 1))
+        start = t + 1
+    if start <= reservation_table.max_timestep:
+        intervals.append((start, reservation_table.max_timestep))
+    return intervals
 
 
-def reserve_path(agent_id, path, t_start):
-    """
-    Update reservation table with path from t_start.
-    Parameters:
-        agent_id: agent id.
-        path: generated path per timestep.
-        t_start: start timestep for reservation.
-    """
-    if not path:
-        return
-    for t in range(t_start, min(len(path) - 1, max_timestep_global)):
-        current = path[t]
-        next = path[t + 1]
-        reserve_vertices_table.setdefault(t, {})
-        reserve_vertices_table.setdefault(t + 1, {})
-        reserve_edges_table.setdefault(t, {})
-        reserve_vertices_table[t].setdefault(current, agent_id)
-        reserve_vertices_table[t + 1].setdefault(next, agent_id)
-        reserve_edges_table[t].setdefault((current, next), agent_id)
-    # goal = path[-1]
-    # for t in range(len(path), max_timestep_global + 1):
-    #     reserve_vertices_table.setdefault(t, {})
-    #     reserve_vertices_table[t].setdefault(goal, agent_id)
+def form_new_path(
+    old_path: List[Position], new_path: List[Position], split_t: int
+) -> List[Position]:
+    """Merge an updated suffix with the preserved prefix of an old plan."""
 
-
-def form_new_path(old_path, new_path, split_t):
-    """
-    Use split_t as the index, keep the 0~split_t part of old_path, and concatenate the split_t~end part of new_path.
-
-    Parameters:
-        old_path: old_path.
-        new_path: new_path.
-        split_t: failed timestep.
-    """
     if split_t <= 0 or not old_path:
         return new_path
-    return old_path[:split_t] + new_path[split_t:]
+    prefix = old_path[:split_t]
+    suffix = new_path[split_t:]
+    return prefix + suffix
 
 
 def get_current_position(agent: EnvAgent):
-    """
-    Get the agent current pose.
-    Return ((x,y), direction).
-    """
+    """Get the agent current pose."""
+
     loc = getattr(agent, "position", None)
     if loc is None:
         loc = agent.initial_position
@@ -202,285 +202,247 @@ def get_current_position(agent: EnvAgent):
 
 def malfunction_remaining(agent: EnvAgent) -> int:
     """Get remaining malfunction timesteps."""
-    malfunction_data = getattr(agent, "malfunction_data", None)
-    if malfunction_data and "malfunction" in malfunction_data:
-        return int(malfunction_data["malfunction"])
+
+    data = getattr(agent, "malfunction_data", None)
+    if data and "malfunction" in data:
+        return int(data["malfunction"])
+    return 0
 
 
-def in_bounds(rail, pos):
+def in_bounds(rail: GridTransitionMap, pos: Optional[Position]) -> bool:
     if pos is None:
         return False
     x, y = pos
     return 0 <= x < rail.height and 0 <= y < rail.width
 
 
-def safe_grid_value(grid, pos, default=10**9):
-    # grid is dist_map（height x width）
-    if pos is None:
-        return default
-    x, y = pos
-    if 0 <= x < len(grid) and 0 <= y < len(grid[0]):
-        return grid[x][y]
-    return default
-
-def is_junction(rail, pos):
-    """判断位置是否是交叉路口（多于一个可行方向）"""
-    x, y = pos
-    if not in_bounds(rail, pos):
-        return False
-    # 获取所有可能的方向
-    total_transitions = 0
-    for direction in range(4):
-        if sum(rail.get_transitions(x, y, direction)) > 0:
-            total_transitions += 1
-    return total_transitions > 1
-
-def predict_two_step_conflict(agent_id, rail, current, next_pos, direction, t_current):
-    """
-    如果从current移动到next_pos，然后在下一步所有可能动作都会冲突，则返回True
-    """
-    t1 = t_current + 1
-    t2 = t_current + 2
-    # 如果下一步是路口，则需要预测再下一步是否会发生冲突
-    if is_junction(rail, next_pos):
-        # 在next_pos方向direction下生成可能后继
-        successors2 = successors(rail, next_pos, direction)
-        for pos2, dir2 in successors2:
-            if not is_reserved(agent_id, next_pos, pos2, t2):
-                return False
-    return True
-
-
 from collections import deque
 
-# 全局缓存距离图
-distance_map_cache = {}
+
+distance_map_cache: Dict[Tuple[int, int], List[List[int]]] = {}
 
 
-def get_distance_map(rail, goal):
+def get_distance_map(rail: GridTransitionMap, goal: Optional[Position]):
     global distance_map_cache
-    key = (goal[0], goal[1]) if goal is not None else ("none", "none")
+    if goal is None or not in_bounds(rail, goal):
+        return [[10**9] * rail.width for _ in range(rail.height)]
+
+    key = (goal[0], goal[1])
     if key in distance_map_cache:
         return distance_map_cache[key]
 
     dist_map = [[10**9] * rail.width for _ in range(rail.height)]
-    if goal is None or not in_bounds(rail, goal):
-        distance_map_cache[key] = dist_map
-        return dist_map
-
-    q = deque()
+    q = deque([goal])
     dist_map[goal[0]][goal[1]] = 0
-    q.append(goal)
 
     while q:
         x, y = q.popleft()
+        base_cost = dist_map[x][y]
         for direction in range(4):
             transitions = rail.get_transitions(x, y, direction)
-            for d in range(4):
-                if transitions[d]:
-                    nx, ny = x, y
-                    if d == 0:
-                        nx -= 1
-                    elif d == 1:
-                        ny += 1
-                    elif d == 2:
-                        nx += 1
-                    elif d == 3:
-                        ny -= 1
-                    if nx < 0 or nx >= rail.height or ny < 0 or ny >= rail.width:
-                        continue
-                    if dist_map[nx][ny] > dist_map[x][y] + 1:
-                        dist_map[nx][ny] = dist_map[x][y] + 1
-                        q.append((nx, ny))
+            for move_dir in range(4):
+                if not transitions[move_dir]:
+                    continue
+                nx, ny = x, y
+                if move_dir == 0:
+                    nx -= 1
+                elif move_dir == 1:
+                    ny += 1
+                elif move_dir == 2:
+                    nx += 1
+                elif move_dir == 3:
+                    ny -= 1
+                if not (0 <= nx < rail.height and 0 <= ny < rail.width):
+                    continue
+                if dist_map[nx][ny] > base_cost + 1:
+                    dist_map[nx][ny] = base_cost + 1
+                    q.append((nx, ny))
 
     distance_map_cache[key] = dist_map
     return dist_map
 
 
-# ---------- Reconstruct path ----------
-def reconstruct_path_aligned(
-    parents, goal_state_key, start_location, start_timestep, max_timestep
-):
-    """Reconstruct path from parents."""
-    location_by_timestep = {}
-    if goal_state_key is not None:
-        current_state = goal_state_key
-        reversed_states = []
-        while current_state is not None:
-            reversed_states.append(current_state)
-            current_state = parents[current_state]
-        reversed_states.reverse()
+def reconstruct_path(
+    parents: Dict[State, Optional[State]],
+    goal_state: Optional[State],
+    start_location: Position,
+    start_timestep: int,
+    max_timestep: int,
+) -> List[Position]:
+    result: List[Position] = [start_location for _ in range(max_timestep + 1)]
+    visited = [False for _ in range(max_timestep + 1)]
+    if 0 <= start_timestep <= max_timestep:
+        result[start_timestep] = start_location
+        visited[start_timestep] = True
 
-        # Map each timestep to its corresponding position
-        for x, y, d, t in reversed_states:
-            location_by_timestep[t] = (x, y)
-        last_timestep = max(location_by_timestep.keys())
-        last_location = location_by_timestep[last_timestep]
-        # Use last location to fill all timesteps
-        for t in range(last_timestep + 1, max_timestep + 1):
-            location_by_timestep[t] = last_location
-    else:
-        # No solution, use WAIT fill all timesteps
-        for t in range(start_timestep, max_timestep + 1):
-            location_by_timestep[t] = start_location
+    if goal_state is None:
+        for t in range(start_timestep - 1, -1, -1):
+            result[t] = start_location
+        for t in range(start_timestep + 1, max_timestep + 1):
+            result[t] = start_location
+        return result
 
-    # If waiting from start, use start location to fill all timesteps
-    for t in range(0, start_timestep):
-        location_by_timestep.setdefault(t, start_location)
-    return [location_by_timestep[t] for t in range(0, max_timestep + 1)]
+    sequence: List[State] = []
+    cursor = goal_state
+    while cursor is not None:
+        sequence.append(cursor)
+        cursor = parents[cursor]
+    sequence.reverse()
+
+    for x, y, direction, timestep in sequence:
+        if 0 <= timestep <= max_timestep:
+            result[timestep] = (x, y)
+            visited[timestep] = True
+
+    last_pos = start_location
+    for t in range(start_timestep, max_timestep + 1):
+        if not visited[t]:
+            result[t] = last_pos
+        else:
+            last_pos = result[t]
+
+    for t in range(start_timestep - 1, -1, -1):
+        result[t] = start_location
+
+    return result
 
 
-# ---------- Single-agent Time-based A*  ----------
-def single_agent_astar(
-    agent_id, rail, start_location, start_direction, goal, start_timestep, max_t
-):
-    """
-    Time-expanded A* with reservation table (single agent vs moving obstacles)
+def single_agent_sipp(
+    agent_id: int,
+    rail: GridTransitionMap,
+    start_location: Position,
+    start_direction: int,
+    goal: Optional[Position],
+    start_timestep: int,
+    max_timestep: int,
+) -> List[Position]:
+    if goal is None or start_location is None:
+        return [start_location for _ in range(max_timestep + 1)]
+    if start_location == goal:
+        return [start_location for _ in range(max_timestep + 1)]
 
-    Parameters:
-        agent_id: agent id.
-        rail: grid environment.
-        start_location: start position.
-        start_direction: start direction.
-        goal: goal position.
-        start_timestep: start timestep (with delayed start).
-        max_t: maximum timestep.
-    """
     dist_map = get_distance_map(rail, goal)
 
-    def heuristic(pos):
-        return dist_map[pos[0]][pos[1]]
+    start_intervals = compute_safe_intervals(agent_id, start_location)
+    start_int = None
+    for s, e in start_intervals:
+        if s <= start_timestep <= e:
+            start_int = (s, e)
+            break
+    if start_int is None:
+        return [start_location for _ in range(max_timestep + 1)]
 
-    open_heap = []
-    start_key = (start_location[0], start_location[1], start_direction, start_timestep)
-    g_value = {start_key: 0}
-    # f = g + h
+    open_heap: List[Tuple[int, int, int, int, int, int, int, int]] = []
+    g_best: Dict[Tuple[int, int, int, int, int], int] = {}
+    parents: Dict[State, Optional[State]] = {}
+
+    start_state = (start_location[0], start_location[1], start_direction, start_timestep)
+    parents[start_state] = None
+    g_best[(start_location[0], start_location[1], start_direction, start_int[0], start_int[1])] = start_timestep
+
+    h0 = dist_map[start_location[0]][start_location[1]]
+    if h0 >= 10**9:
+        h0 = manhattan_distance(start_location, goal)
+
     heapq.heappush(
         open_heap,
         (
-            g_value[start_key] + manhattan_distance(start_location, goal),
-            0,
-            *start_key,
-            None,
+            start_timestep + h0,
+            start_timestep,
+            start_location[0],
+            start_location[1],
+            start_direction,
+            start_int[0],
+            start_int[1],
         ),
     )
-    # print(f'Initial A* with agent_id: [{agent_id}] start_location: {start_location} start_direction: {start_direction} goal: {goal} start_timestep: {start_timestep} max_t: {max_t}')
-    parents = {start_key: None}
-    best_goal_state_key = None
 
-    # A*
+    best_goal: Optional[State] = None
+
     while open_heap:
-        _, g_val, x, y, direction, timestep, parent = heapq.heappop(open_heap)
-        current_key = (x, y, direction, timestep)
-        if g_val != g_value.get(current_key, float("inf")):
+        f, g, x, y, direction, int_s, int_e = heapq.heappop(open_heap)
+        key = (x, y, direction, int_s, int_e)
+        if g != g_best.get(key, float("inf")):
             continue
-        if parents[current_key] is None and parent is not None:
-            parents[current_key] = parent
         if (x, y) == goal:
-            best_goal_state_key = current_key
+            best_goal = (x, y, direction, g)
             break
-        if timestep >= max_t:
+        if g >= max_timestep:
             continue
-        possible_neighbors = successors(rail, (x, y), direction)
-        for next_location, next_direction in successors(rail, (x, y), direction):
-            # 如果下一步是路口且两步后都会冲突，则跳过该移动
-            if predict_two_step_conflict(agent_id, rail, (x, y), next_location, next_direction, timestep):
-                # print(f'Predict two step conflict with agent_id: [{agent_id}] current: {(x, y)} next: {next_location} cur_timestep: {timestep}')
-                continue
-        
-        for next_location, next_direction in possible_neighbors:
-            next_x, next_y = next_location
-            if (
-                rail.is_dead_end(next_location)
-                and (next_location not in reserve_vertices_table)
-                and next_location != goal
-                and (x, y) != start_location
-            ):  # avoid dead end
-                continue
-            n_timestep = timestep + 1
-            if is_reserved(agent_id, (x, y), (next_x, next_y), n_timestep):
-                continue
-            next_key = (next_x, next_y, next_direction, n_timestep)
-            next_g_val = g_val + 1
-            if next_g_val < g_value.get(next_key, float("inf")):
-                g_value[next_key] = next_g_val
-                h_val = manhattan_distance((next_x, next_y), goal)
-                # h_val = safe_grid_value(
-                #     dist_map,
-                #     (next_x, next_y),
-                #     default=manhattan_distance((next_x, next_y), goal),
-                # )
 
+        for nxt, ndir in successors(rail, (x, y), direction):
+            if not in_bounds(rail, nxt):
+                continue
+            intervals = compute_safe_intervals(agent_id, nxt)
+            for ns, ne in intervals:
+                depart_time = max(g, ns - 1)
+                if depart_time > int_e:
+                    continue
+                arrival = depart_time + 1
+                if arrival < ns or arrival > ne:
+                    continue
+                if reservation_table.is_conflict(agent_id, (x, y), nxt, arrival):
+                    continue
+                nkey = (nxt[0], nxt[1], ndir, ns, ne)
+                if arrival >= g_best.get(nkey, float("inf")):
+                    continue
+                g_best[nkey] = arrival
+                child_state: State = (nxt[0], nxt[1], ndir, arrival)
+                parents[child_state] = (x, y, direction, g)
+                h = dist_map[nxt[0]][nxt[1]]
+                if h >= 10**9:
+                    h = manhattan_distance(nxt, goal)
                 heapq.heappush(
                     open_heap,
                     (
-                        next_g_val + h_val,
-                        next_g_val,
-                        next_x,
-                        next_y,
-                        next_direction,
-                        n_timestep,
-                        current_key,
+                        arrival + h,
+                        arrival,
+                        nxt[0],
+                        nxt[1],
+                        ndir,
+                        ns,
+                        ne,
                     ),
                 )
-                if next_key not in parents:
-                    parents[next_key] = current_key
 
-    # Reconstruct path
-    return reconstruct_path_aligned(
-        parents, best_goal_state_key, start_location, start_timestep, max_t
-    )
+    return reconstruct_path(parents, best_goal, start_location, start_timestep, max_timestep)
 
 
 def get_path(agents: List[EnvAgent], rail: GridTransitionMap, max_timestep: int):
-    """
-    Multi-agent planning: plan in order and update reservation table.
+    """Plan initial paths for all agents with prioritized planning."""
 
-    Parameters:
-        agents: agents list.
-        rail: grid environment.
-        max_timestep: maximum timestep.
-    """
-    global distance_map_cache
+    global distance_map_cache, planned_paths, agent_order, max_timestep_global
     distance_map_cache = {}
-    global reserve_vertices_table, reserve_edges_table, planned_paths, agent_order, max_timestep_global
-    # Initialize global variables
     max_timestep_global = int(max_timestep)
-    reserve_vertices_table.clear()
-    reserve_edges_table.clear()
+    reservation_table.reset(max_timestep_global)
 
-    # Initialize paths for all agents
     planned_paths = [[] for _ in range(len(agents))]
 
-    # Priority rule: (deadline - EAT) ascending, then deadline ascending, then EAT ascending
-    priorities = []  # (agent_id, slack, ddl_value, est_distance)
+    priorities = []  # (agent_id, slack, ddl_value, est_distance, agent_id)
     for agent_id, agent in enumerate(agents):
         start = agent.initial_position
-        goal = agent.target
+        goal = agent.target if agent.target is not None else start
         ddl = getattr(agent, "deadline", None)
-        # Use Manhattan distance as EAT estimate
-        est_distance = manhattan_distance(start, goal if goal else start)
+        est_distance = manhattan_distance(start, goal)
         ddl_value = ddl if ddl is not None else max_timestep_global
         slack = ddl_value - est_distance
-        priorities.append((agent_id, slack, ddl_value, est_distance))
-    agent_order = [
-        agent_id
-        for (agent_id, _, _, _) in sorted(priorities, key=lambda x: (x[1], x[2], x[3]))
-    ]
+        priorities.append((agent_id, slack, ddl_value, est_distance, agent_id))
+
+    agent_order = [item[0] for item in sorted(priorities, key=lambda x: (x[1], x[2], x[3], x[4]))]
 
     for agent_id in agent_order:
         agent = agents[agent_id]
-        path_i = single_agent_astar(
+        path = single_agent_sipp(
             agent_id,
             rail,
             agent.initial_position,
             agent.initial_direction,
             agent.target,
             start_timestep=0,
-            max_t=max_timestep_global,
+            max_timestep=max_timestep_global,
         )
-        planned_paths[agent_id] = path_i
-        reserve_path(agent_id, path_i, t_start=0)  # update reservation table
+        planned_paths[agent_id] = path
+        reservation_table.reserve_path(agent_id, path, start_timestep=0)
 
     return planned_paths
 
@@ -494,95 +456,68 @@ def replan(
     new_malfunction_agents,
     failed_agents,
 ):
-    """
-    Cache paths and replan new paths for malfunction agents or failed agents.
+    """Replan paths for agents affected by malfunctions or failures."""
 
-    Parameters:
-        agents: agents list.
-        rail: grid environment.
-        current_timestep: at which timestep during the execution, the replan function is called.
-        existing_paths: the paths from the previous get_path/replan function call
-        max_timestep: maximum timestep.
-        new_malfunction_agents: a list of ids of agents that have a new malfunction happens at the current time step.
-        failed_agents: a list of ids of agents that failed to reach their intended location at the current timestep.
-    """
-    global reserve_vertices_table, reserve_edges_table, planned_paths, agent_order, max_timestep_global
-    # Initialize global variables
+    global planned_paths, agent_order, max_timestep_global, distance_map_cache
     max_timestep_global = int(max_timestep)
     planned_paths = existing_paths
+    distance_map_cache = {}
+    reservation_table.reset(max_timestep_global)
 
-    # Rebuild reservation table, keep history for t<current_timestep
-    reserve_vertices_table = {}
-    reserve_edges_table = {}
     current_timestep = int(current_timestep)
-    for i in range(len(agents)):
-        plan = planned_paths[i]
-        for t in range(0, current_timestep):
-            current = plan[t]
-            next = plan[t + 1]
-            reserve_vertices_table.setdefault(t, {})
-            reserve_vertices_table.setdefault(t + 1, {})
-            reserve_edges_table.setdefault(t, {})
-            reserve_vertices_table[t][current] = i
-            reserve_vertices_table[t + 1][next] = i
-            reserve_edges_table[t][(current, next)] = i
-    # print("[replan]new_malfunction_agents", new_malfunction_agents)
-    # print("[replan]failed_agents", failed_agents)
-    to_replan = set(new_malfunction_agents) | set(
-        failed_agents
-    )  # agents that need replanning
 
-    # Update reservation table for normal agents
-    for i in range(len(agents)):
-        if i in to_replan:
+    # Reserve history for all agents up to the current timestep
+    for agent_id, path in enumerate(planned_paths):
+        if not path:
             continue
-        reserve_path(i, planned_paths[i], t_start=current_timestep)
+        reservation_table.reserve_history(agent_id, path, current_timestep)
 
-    # Setup priority order
-    # if not agent_order:
-    # Priority rule: (deadline - EAT) ascending, then deadline ascending, then EAT ascending
-    priorities = []  # (agent_id, slack, ddl_value, est_distance)
-    for i, agent in enumerate(agents):
-        cur_loc, _ = get_current_position(agent)
+    to_replan = set(new_malfunction_agents) | set(failed_agents)
+
+    # Keep reservations for agents not being replanned
+    for agent_id, path in enumerate(planned_paths):
+        if agent_id in to_replan or not path:
+            continue
+        reservation_table.reserve_path(agent_id, path, start_timestep=current_timestep)
+
+    priorities = []
+    for agent_id, agent in enumerate(agents):
+        loc, _ = get_current_position(agent)
+        goal = agent.target if agent.target is not None else loc
         ddl = getattr(agent, "deadline", None)
-        # Always use Manhattan distance as EAT estimate
-        est_distance = manhattan_distance(cur_loc, agent.target)
+        est_distance = manhattan_distance(loc, goal)
         ddl_value = ddl if ddl is not None else max_timestep_global
         slack = ddl_value - est_distance
-        priorities.append((i, slack, ddl_value, est_distance))
-    agent_order = [
-        i for (i, _, _, _) in sorted(priorities, key=lambda x: (x[1], x[2], x[3]))
-    ]
+        priorities.append((agent_id, slack, ddl_value, est_distance, agent_id))
 
-    # Replan by priority
-    for i in [k for k in agent_order if k in to_replan]:
-        agent = agents[i]
+    agent_order = [item[0] for item in sorted(priorities, key=lambda x: (x[1], x[2], x[3], x[4]))]
+
+    for agent_id in agent_order:
+        if agent_id not in to_replan:
+            continue
+        agent = agents[agent_id]
         cur_loc, cur_dir = get_current_position(agent)
-        wait_steps = malfunction_remaining(agent) if i in new_malfunction_agents else 0
+        wait_steps = malfunction_remaining(agent) if agent_id in new_malfunction_agents else 0
 
-        # waiting for malfunction
-        for k in range(wait_steps):
-            t = current_timestep + k
-            reserve_vertices_table.setdefault(t, {})
-            reserve_vertices_table[t][cur_loc] = i
-            if t - 1 >= 0:  # edge circle, stay at the same location
-                reserve_edges_table.setdefault(t - 1, {})
-                reserve_edges_table[t - 1][(cur_loc, cur_loc)] = i
+        for offset in range(wait_steps):
+            t = current_timestep + offset
+            reservation_table.reserve_vertex(agent_id, cur_loc, t)
+            if t > 0:
+                reservation_table.reserve_edge(agent_id, cur_loc, cur_loc, t - 1)
 
-        new_start_timestep = current_timestep + wait_steps
-        new_path = single_agent_astar(
-            i,
+        start_time = current_timestep + wait_steps
+        new_path = single_agent_sipp(
+            agent_id,
             rail,
             cur_loc,
             cur_dir,
             agent.target,
-            start_timestep=new_start_timestep,
-            max_t=max_timestep_global,
+            start_timestep=start_time,
+            max_timestep=max_timestep_global,
         )
-        planned_paths[i] = form_new_path(
-            planned_paths[i], new_path, split_t=current_timestep
-        )
-        reserve_path(i, planned_paths[i], t_start=current_timestep)
+        merged_path = form_new_path(planned_paths[agent_id], new_path, split_t=current_timestep)
+        planned_paths[agent_id] = merged_path
+        reservation_table.reserve_path(agent_id, merged_path, start_timestep=current_timestep)
 
     return planned_paths
 
