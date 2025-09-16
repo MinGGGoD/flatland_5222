@@ -495,7 +495,7 @@ def get_path(agents: List[EnvAgent], rail: GridTransitionMap, max_timestep: int)
 
     for agent_id in agent_order:
         agent = agents[agent_id]
-        path_i = single_agent_astar(
+        path_i = single_agent_sipp(
             agent_id,
             rail,
             agent.initial_position,
