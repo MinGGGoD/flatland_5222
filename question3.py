@@ -51,6 +51,11 @@ planned_paths = []  # Current paths for all agents (path[t]=(x,y))
 agent_order = []  # Planning order
 max_timestep_global = 0
 
+# Track progress of agents to detect long stalls
+STALL_THRESHOLD = int(os.environ.get("FLATLAND_STALL_THRESHOLD", 5))
+last_progress = []  # Last timestep when an agent changed position
+last_positions = []  # Last known position of each agent
+
 
 # ========== Tools functions ==========
 def manhattan_distance(pos1, pos2):
@@ -205,6 +210,7 @@ def malfunction_remaining(agent: EnvAgent) -> int:
     malfunction_data = getattr(agent, "malfunction_data", None)
     if malfunction_data and "malfunction" in malfunction_data:
         return int(malfunction_data["malfunction"])
+    return 0
 
 
 def in_bounds(rail, pos):
@@ -432,6 +438,22 @@ def single_agent_astar(
     )
 
 
+def single_agent_sipp(
+    agent_id, rail, start_location, start_direction, goal, start_timestep, max_t
+):
+    """Wrapper for the single-agent planner used during replanning."""
+
+    return single_agent_astar(
+        agent_id,
+        rail,
+        start_location,
+        start_direction,
+        goal,
+        start_timestep,
+        max_t,
+    )
+
+
 def get_path(agents: List[EnvAgent], rail: GridTransitionMap, max_timestep: int):
     """
     Multi-agent planning: plan in order and update reservation table.
@@ -444,6 +466,7 @@ def get_path(agents: List[EnvAgent], rail: GridTransitionMap, max_timestep: int)
     global distance_map_cache
     distance_map_cache = {}
     global reserve_vertices_table, reserve_edges_table, planned_paths, agent_order, max_timestep_global
+    global last_progress, last_positions
     # Initialize global variables
     max_timestep_global = int(max_timestep)
     reserve_vertices_table.clear()
@@ -451,6 +474,8 @@ def get_path(agents: List[EnvAgent], rail: GridTransitionMap, max_timestep: int)
 
     # Initialize paths for all agents
     planned_paths = [[] for _ in range(len(agents))]
+    last_positions = [agent.initial_position for agent in agents]
+    last_progress = [0 for _ in agents]
 
     # Priority rule: (deadline - EAT) ascending, then deadline ascending, then EAT ascending
     priorities = []  # (agent_id, slack, ddl_value, est_distance)
@@ -511,6 +536,11 @@ def replan(
     max_timestep_global = int(max_timestep)
     planned_paths = existing_paths
 
+    if len(last_progress) != len(agents):
+        last_progress = [0 for _ in agents]
+    if len(last_positions) != len(agents):
+        last_positions = [agent.initial_position for agent in agents]
+
     # Rebuild reservation table, keep history for t<current_timestep
     reserve_vertices_table = {}
     reserve_edges_table = {}
@@ -528,9 +558,31 @@ def replan(
             reserve_edges_table[t][(current, next)] = i
     # print("[replan]new_malfunction_agents", new_malfunction_agents)
     # print("[replan]failed_agents", failed_agents)
+    inactivity = {}
+    for i, agent in enumerate(agents):
+        cur_loc, _ = get_current_position(agent)
+        if cur_loc != last_positions[i]:
+            last_positions[i] = cur_loc
+            last_progress[i] = current_timestep
+        else:
+            last_positions[i] = cur_loc
+        inactivity[i] = max(current_timestep - last_progress[i], 0)
+
+    blocked_agents = set()
+    if STALL_THRESHOLD >= 0:
+        for i, agent in enumerate(agents):
+            goal = getattr(agent, "target", None)
+            if goal is None or last_positions[i] == goal:
+                continue
+            if inactivity[i] > STALL_THRESHOLD:
+                blocked_agents.add(i)
+
+    blocked_wait = {i: inactivity[i] for i in blocked_agents}
+
     to_replan = set(new_malfunction_agents) | set(
         failed_agents
     )  # agents that need replanning
+    to_replan |= blocked_agents
 
     # Update reservation table for normal agents
     for i in range(len(agents)):
@@ -554,8 +606,22 @@ def replan(
         i for (i, _, _, _) in sorted(priorities, key=lambda x: (x[1], x[2], x[3]))
     ]
 
+    replan_sequence = [k for k in agent_order if k in to_replan]
+
+    if blocked_agents:
+        blocked_sequence = sorted(
+            [idx for idx in replan_sequence if idx in blocked_agents],
+            key=lambda idx: blocked_wait.get(idx, 0),
+            reverse=True,
+        )
+        for agent_idx in reversed(blocked_sequence):
+            if agent_idx in replan_sequence:
+                replan_sequence.insert(
+                    0, replan_sequence.pop(replan_sequence.index(agent_idx))
+                )
+
     # Replan by priority
-    for i in [k for k in agent_order if k in to_replan]:
+    for i in replan_sequence:
         agent = agents[i]
         cur_loc, cur_dir = get_current_position(agent)
         wait_steps = malfunction_remaining(agent) if i in new_malfunction_agents else 0
@@ -570,7 +636,7 @@ def replan(
                 reserve_edges_table[t - 1][(cur_loc, cur_loc)] = i
 
         new_start_timestep = current_timestep + wait_steps
-        new_path = single_agent_astar(
+        new_path = single_agent_sipp(
             i,
             rail,
             cur_loc,
@@ -582,6 +648,8 @@ def replan(
         planned_paths[i] = form_new_path(
             planned_paths[i], new_path, split_t=current_timestep
         )
+
+    for i in replan_sequence:
         reserve_path(i, planned_paths[i], t_start=current_timestep)
 
     return planned_paths
