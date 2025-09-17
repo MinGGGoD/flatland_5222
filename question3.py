@@ -36,7 +36,7 @@ visualizer = False
 test_single_instance = False
 test_single_level = False
 level = 1
-test = 4
+test = 7
 # 0,6
 #########################
 # Reimplementing the content in get_path() function and replan() function.
@@ -474,7 +474,7 @@ def single_agent_sipp(
                     continue
                 if reservation_table.is_conflict(agent_id, (x, y), nxt, arrival):
                     continue
-                if rail.is_dead_end((nxt[0], nxt[1])) and (x, y) != start_location and (nxt[0], nxt[1]) != goal:
+                if rail.is_dead_end((nxt[0], nxt[1])) and reservation_table.vertex.get(arrival, {}).get((nxt[0], nxt[1])) is not None and (nxt[0], nxt[1]) != goal:
                     continue
                 nkey = (nxt[0], nxt[1], ndir, ns, ne)
                 if arrival >= g_best.get(nkey, float("inf")):
@@ -514,6 +514,8 @@ def get_path(agents, rail, max_timestep):
     # priorities disabled: use default agent order instead of sorting by slack/ddl/distance
     priorities = []  # (agent_id, slack, ddl_value, est_distance, agent_id)
     for agent_id, agent in enumerate(agents):
+        # if agent_id == 4:
+        #     print(f'agent 4 direction: {agent.direction} {agent.initial_direction}')
         start = agent.initial_position
         goal = agent.target if agent.target is not None else start
         ddl = getattr(agent, "deadline", None)
@@ -525,7 +527,7 @@ def get_path(agents, rail, max_timestep):
         item[0] for item in sorted(priorities, key=lambda x: (x[1], x[2], x[3]))
     ]
     # agent_order = list(range(len(agents)))
-
+    # print(f'[GET_PATH] agent_order: {agent_order}')
     for agent_id in agent_order:
         agent = agents[agent_id]
         path = single_agent_sipp(
