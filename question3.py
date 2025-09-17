@@ -36,7 +36,7 @@ visualizer = False
 test_single_instance = False
 test_single_level = False
 level = 1
-test = 5
+test = 4
 # 0,6
 #########################
 # Reimplementing the content in get_path() function and replan() function.
@@ -474,6 +474,8 @@ def single_agent_sipp(
                     continue
                 if reservation_table.is_conflict(agent_id, (x, y), nxt, arrival):
                     continue
+                if rail.is_dead_end((nxt[0], nxt[1])) and (x, y) != start_location and (nxt[0], nxt[1]) != goal:
+                    continue
                 nkey = (nxt[0], nxt[1], ndir, ns, ne)
                 if arrival >= g_best.get(nkey, float("inf")):
                     continue
@@ -581,7 +583,9 @@ def replan(
     # 待重规划集合：新增或失败 + 当前仍在故障 + 被顺延/入块影响到需要等待的
     new_or_failed_set = set(new_malfunction_agents) | set(failed_agents)
     to_replan = set(a for a, w in combined_waits.items() if w > 0) | new_or_failed_set | current_malfunction_set
-
+    #if to_replan has agent 4, then add agent 3 to to_replan
+    # if 7 in to_replan:
+    #     print(f"[REPLAN] replan agent 7, ")
     # Keep reservations for agents not being replanned
     for agent_id, path in enumerate(planned_paths):
         if agent_id in to_replan or not path:
@@ -599,8 +603,9 @@ def replan(
         slack = ddl_value - est_distance
         priorities.append((agent_id, slack, ddl_value, est_distance, agent_id))
     agent_order = [
-        item[0] for item in sorted(priorities, key=lambda x: (x[1], x[2], x[3]))
+        item[0] for item in sorted(priorities, key=lambda x: ( x[2],))
     ]
+    # print(f"[REPLAN] agent_order: {agent_order}")
     # agent_order = list(range(len(agents)))
 
     replan_sequence = [k for k in agent_order if k in to_replan]
@@ -639,6 +644,8 @@ def replan(
             start_timestep=start_time,
             max_timestep=max_timestep_global,
         )
+        # if agent_id == 7:
+        #     print(f"[REPLAN] new_path: {new_path}")
         merged_path = form_new_path(
             planned_paths[agent_id], new_path, split_t=current_timestep
         )
