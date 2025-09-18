@@ -123,9 +123,6 @@ planned_paths = []
 agent_order = []
 max_timestep_global = 0
 
-# Removed STALL_THRESHOLD logic for simplicity
-
-
 # ========== Tools functions ==========
 def manhattan_distance(pos1, pos2):
     """Calculate Manhattan distance between two positions."""
@@ -207,7 +204,9 @@ def malfunction_remaining(agent: EnvAgent) -> int:
 
 
 # Direction-aware delay toggle
-DELAY_ONLY_SAME_MOVEMENT = False  # True: 仅顺延同一进出方向的后继；False: 同 cell 全顺延
+# True: delay only successors with the same in/out directions; 
+# False: delay all successors in the same cell
+DELAY_ONLY_SAME_MOVEMENT = False  
 
 
 def dir_from(a, b):
@@ -216,33 +215,34 @@ def dir_from(a, b):
     x1, y1 = a
     x2, y2 = b
     if x2 == x1 - 1 and y2 == y1:
-        return 0  # 北
+        return 0  # North
     if x2 == x1 and y2 == y1 + 1:
-        return 1  # 东
+        return 1  # East
     if x2 == x1 + 1 and y2 == y1:
-        return 2  # 南
+        return 2  # South
     if x2 == x1 and y2 == y1 - 1:
-        return 3  # 西
+        return 3  # West
     return None
 
 
 def step_dirs(path, t):
-    # t 时刻处于 path[t]；入方向由 t-1->t，出方向由 t->t+1
+    # At time t, agent is at path[t]; incoming direction from t-1->t, outgoing from t->t+1
     in_dir = None if t - 1 < 0 else dir_from(path[t - 1], path[t])
     out_dir = None if t + 1 >= len(path) else dir_from(path[t], path[t + 1])
     return in_dir, out_dir
 
 
 def compute_additional_waits(agents, paths, current_timestep, malfunction_agents):
-    # 为每个 agent 计算需要统一延后的额外等待步数（取该 agent 所有未来 cell 访问中所需延后量的最大值）
+    # Compute additional uniform wait steps for each agent
+    # (take the maximum delay required across all of the agent's future cell visits)
     extra_wait = defaultdict(int)
 
-    # 构建未来 cell 访问队列：pos -> [(orig_t, aid, in_dir, out_dir)]
+    # Build future cell visit queues: pos -> [(orig_t, aid, in_dir, out_dir)]
     cell_queue = defaultdict(list)
     for aid, path in enumerate(paths):
         if not path:
             continue
-        # 仅考虑未来时刻
+        # Only consider future timesteps
         end_t = min(len(path), max_timestep_global + 1)
         for t in range(current_timestep + 1, end_t):
             pos = path[t]
@@ -254,14 +254,14 @@ def compute_additional_waits(agents, paths, current_timestep, malfunction_agents
     if debug1:
         print(f"[CELL] t={current_timestep} build queues: {len(cell_queue)} cells; malfunction_agents={list(malfunction_agents)}")
 
-    # 对每个 cell 处理顺延
+    # Process delays per cell
     for pos, events in cell_queue.items():
         if not events:
             continue
-        # 按原计划到达时间排序
+        # Sort by original planned arrival time
         events.sort(key=lambda x: x[0])
 
-        # 分组（按进出方向）或整体处理
+        # Group by (in_dir, out_dir) if toggled; otherwise process as a whole
         if DELAY_ONLY_SAME_MOVEMENT:
             groups = defaultdict(list)
             for (t0, aid, in_d, out_d) in events:
@@ -271,17 +271,17 @@ def compute_additional_waits(agents, paths, current_timestep, malfunction_agents
             group_list = [events]
 
         for group in group_list:
-            # 先拷贝原时刻，按 malfunction agent 对自身事件施加 base 延迟，再链式保证严格递增（至少 +1）
+            # Copy original times; apply base delay for malfunction agents; then enforce strictly increasing times (at least +1)
             prev_new_t = None
             for idx, (t0, aid, in_d, out_d) in enumerate(group):
-                # 基础延迟：若该事件主体是 malfunction agent，则延 d
+                # Base delay: if the event owner is a malfunctioning agent, delay by d
                 base_delay = 0
                 if aid in malfunction_agents:
                     try:
                         d = malfunction_remaining(agents[aid])
                     except Exception:
                         d = 0
-                    # 仅作用于未来事件（t0 > current_timestep），条件已满足
+                    # Apply only to future events (t0 > current_timestep), already satisfied
                     base_delay = max(0, d)
 
                 new_t = t0 + base_delay
@@ -289,7 +289,7 @@ def compute_additional_waits(agents, paths, current_timestep, malfunction_agents
                     new_t = prev_new_t + 1
                 prev_new_t = new_t
 
-                # 记录该 agent 需要的最大统一延后量
+                # Record the maximum uniform delay needed for this agent
                 extra = max(0, new_t - t0)
                 if extra > extra_wait[aid]:
                     extra_wait[aid] = extra
@@ -303,8 +303,9 @@ def compute_additional_waits(agents, paths, current_timestep, malfunction_agents
 
 
 def compute_ingress_waits(agents, paths, current_timestep, malfunction_agents):
-    # 对进入“故障占用cell”的后继进行窗口内入块检测：
-    # 若某 agent 在 [t_cur+1, t_cur+d] 期间计划到达故障cell，则令其额外等待到 (t_cur+d+1)
+    # Windowed ingress check for successors entering a cell occupied by a malfunction:
+    # If an agent plans to arrive at the malfunction cell within [t_cur+1, t_cur+d],
+    # force it to wait additionally until (t_cur + d + 1)
     waits = defaultdict(int)
     if not malfunction_agents:
         return waits
@@ -511,11 +512,8 @@ def get_path(agents, rail, max_timestep):
 
     planned_paths = [[] for _ in range(len(agents))]
 
-    # priorities disabled: use default agent order instead of sorting by slack/ddl/distance
     priorities = []  # (agent_id, slack, ddl_value, est_distance, agent_id)
     for agent_id, agent in enumerate(agents):
-        # if agent_id == 4:
-        #     print(f'agent 4 direction: {agent.direction} {agent.initial_direction}')
         start = agent.initial_position
         goal = agent.target if agent.target is not None else start
         ddl = getattr(agent, "deadline", None)
@@ -526,8 +524,7 @@ def get_path(agents, rail, max_timestep):
     agent_order = [
         item[0] for item in sorted(priorities, key=lambda x: (x[1], x[2], x[3]))
     ]
-    # agent_order = list(range(len(agents)))
-    # print(f'[GET_PATH] agent_order: {agent_order}')
+    # plan paths for all agents
     for agent_id in agent_order:
         agent = agents[agent_id]
         path = single_agent_sipp(
@@ -570,10 +567,10 @@ def replan(
             continue
         reservation_table.reserve_history(agent_id, path, current_timestep)
 
-    # 计算“当前仍在故障”的集合，用于等待与顺延计算（而不是仅仅依赖新发生的故障）
+    # Compute the set of agents currently malfunctioning, used for wait and delay calculations (not just newly malfunctioned ones)
     current_malfunction_set = set(i for i, a in enumerate(agents) if malfunction_remaining(a) > 0)
 
-    # 基于同 cell 顺延与入块检测的静态等待（以当前仍在故障的集合为依据）
+    # Static waits based on same-cell queuing and ingress checks (using the current malfunction set)
     extra_waits = compute_additional_waits(agents, planned_paths, current_timestep, current_malfunction_set) if current_malfunction_set else {}
     ingress_waits = compute_ingress_waits(agents, planned_paths, current_timestep, current_malfunction_set) if current_malfunction_set else {}
     combined_waits = defaultdict(int)
@@ -582,19 +579,16 @@ def replan(
     for k, v in ingress_waits.items():
         combined_waits[k] = max(combined_waits[k], v)
 
-    # 待重规划集合：新增或失败 + 当前仍在故障 + 被顺延/入块影响到需要等待的
+    # Set to replan: newly malfunctioned or failed + currently malfunctioning + affected by queuing/ingress waits
     new_or_failed_set = set(new_malfunction_agents) | set(failed_agents)
     to_replan = set(a for a, w in combined_waits.items() if w > 0) | new_or_failed_set | current_malfunction_set
-    #if to_replan has agent 4, then add agent 3 to to_replan
-    # if 7 in to_replan:
-    #     print(f"[REPLAN] replan agent 7, ")
+
     # Keep reservations for agents not being replanned
     for agent_id, path in enumerate(planned_paths):
         if agent_id in to_replan or not path:
             continue
         reservation_table.reserve_path(agent_id, path, start_timestep=current_timestep)
 
-    # priorities disabled: use default agent order instead of sorting by slack/ddl/distance
     priorities = []
     for agent_id, agent in enumerate(agents):
         loc, _ = get_current_position(agent)
@@ -607,8 +601,6 @@ def replan(
     agent_order = [
         item[0] for item in sorted(priorities, key=lambda x: ( x[2],))
     ]
-    # print(f"[REPLAN] agent_order: {agent_order}")
-    # agent_order = list(range(len(agents)))
 
     replan_sequence = [k for k in agent_order if k in to_replan]
 
@@ -621,10 +613,10 @@ def replan(
         agent = agents[agent_id]
         cur_loc, cur_dir = get_current_position(agent)
         wait_steps = 0
-        # 1) 自身故障等待（以“当前仍在故障集”为准）
+        # 1) Self malfunction wait (based on the current malfunction set)
         if agent_id in current_malfunction_set:
             wait_steps = max(wait_steps, malfunction_remaining(agent))
-        # 2) 基于 cell 排队的统一延后
+        # 2) Uniform delay based on cell-level queuing
         if agent_id in combined_waits:
             wait_steps = max(wait_steps, combined_waits.get(agent_id, 0))
 
@@ -646,13 +638,12 @@ def replan(
             start_timestep=start_time,
             max_timestep=max_timestep_global,
         )
-        # if agent_id == 7:
-        #     print(f"[REPLAN] new_path: {new_path}")
+
         merged_path = form_new_path(
             planned_paths[agent_id], new_path, split_t=current_timestep
         )
         planned_paths[agent_id] = merged_path
-        # 立即写预约，使后续重规划的 agent 能看到最新约束
+        # Immediately write reservations so subsequent replans can see the latest constraints
         reservation_table.reserve_path(
             agent_id, merged_path, start_timestep=current_timestep
         )

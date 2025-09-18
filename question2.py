@@ -33,7 +33,7 @@ visualizer = False
 # If you want to test on specific instance, turn test_single_instance to True and specify the level and test number
 test_single_instance = False
 level = 1
-test = 0
+test = 5
 
 #########################
 # Reimplementing the content in get_path() function.
@@ -44,10 +44,10 @@ test = 0
 
 # (dx, dy) offsets
 offsets = {
-    Directions.NORTH: (-1, 0),  # 北方向：向上移动，x减少
-    Directions.EAST: (0, 1),    # 东方向：向右移动，y增加
-    Directions.SOUTH: (1, 0),   # 南方向：向下移动，x增加
-    Directions.WEST: (0, -1),   # 西方向：向左移动，y减少
+    Directions.NORTH: (-1, 0),  # North up
+    Directions.EAST: (0, 1),    # East right
+    Directions.SOUTH: (1, 0),   # South down
+    Directions.WEST: (0, -1),   # West left
 }
 
 
@@ -165,20 +165,6 @@ def reconstruct_path(parents: dict, end_state: tuple):
     return path_rev
 
 
-def is_start_permanently_occupied(start, reserve_vertices, max_timestep):
-    """
-    Check if start position is permanently occupied
-    """
-    for t in range(max_timestep + 1):
-        if (start[0], start[1], t) in reserve_vertices:
-            # If occupied from t=0 to max_timestep, it's permanently occupied
-            continue
-        else:
-            return False
-    return True
-
-
-
 # This function return a list of location tuple as the solution.
 # @param start A tuple of (x,y) coordinates
 # @param start_direction An Int indicate direction.
@@ -188,7 +174,7 @@ def is_start_permanently_occupied(start, reserve_vertices, max_timestep):
 # @param existing_paths A list of lists of locations indicate existing paths. The index of each location is the time that
 # @param max_timestep The max timestep of this episode.
 # @return path A list of (x,y) tuple.
-def get_path1(
+def get_path(
     start: tuple,
     start_direction: int,
     goal: tuple,
@@ -200,9 +186,6 @@ def get_path1(
     """
     Time-expanded A* with reservation table (single agent vs moving obstacles)
     """
-    # if debug:
-    #     print(f"Agent {agent_id} 起点: {start}, 起点方向: {start_direction}, 目标: {goal}")
-
     # Goal check
     if start == goal:
         return [start]

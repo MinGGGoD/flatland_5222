@@ -58,7 +58,7 @@ def get_next_position(x, y, direction):
 # @param rail The flatland railway GridTransitionMap
 # @param max_timestep The max timestep of this episode.
 # @return path A list of (x,y) tuple.
-def get_path1(start: tuple, start_direction: int, goal: tuple, rail: GridTransitionMap, max_timestep: int):
+def get_path(start: tuple, start_direction: int, goal: tuple, rail: GridTransitionMap, max_timestep: int):
     """ A* algorithm implementation """
 
     open_set = []
