@@ -1,0 +1,201 @@
+Framework | Strategy  | Status    | Cost      | Depth     | Nodes(exp)| Nodes(gen)| Runtime   | start     | goal      | Problem             | Solution            
+graph     | a-star    | Success   | 2.4100000 | 2         | 3         | 13        | 0.001     | (124, 256)| (125, 258)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 3.8200000 | 3         | 4         | 18        | 0.0005    | (159, 99) | (162, 101)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 3.4100000 | 3         | 4         | 16        | 0.0005    | (130, 112)| (131, 109)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 2.4100000 | 2         | 3         | 13        | 0.0005    | (94, 101) | (93, 103) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 2.4100000 | 2         | 3         | 13        | 0.0004    | (58, 111) | (60, 110) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 3.8200000 | 3         | 4         | 18        | 0.0005    | (83, 93)  | (80, 95)  | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 3.8200000 | 3         | 4         | 18        | 0.0005    | (48, 262) | (46, 259) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 2.4100000 | 2         | 3         | 13        | 0.0003    | (39, 270) | (40, 268) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 1.0000000 | 1         | 2         | 8         | 0.0001    | (101, 237)| (102, 237)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 1.0000000 | 1         | 2         | 5         | 0.0001    | (178, 274)| (178, 273)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 6.6400000 | 5         | 6         | 27        | 0.0008    | (99, 102) | (104, 98) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 4.0000000 | 4         | 5         | 17        | 0.0006    | (113, 69) | (117, 69) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 7.0000000 | 7         | 8         | 26        | 0.0011    | (138, 256)| (131, 256)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 7.2300000 | 6         | 7         | 29        | 0.001     | (123, 118)| (126, 112)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 6.4100000 | 6         | 7         | 25        | 0.001     | (128, 141)| (129, 147)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 5.2300000 | 4         | 5         | 23        | 0.0007    | (40, 140) | (44, 137) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 7.2300000 | 6         | 7         | 24        | 0.0009    | (53, 239) | (50, 245) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 4.0000000 | 4         | 5         | 17        | 0.0006    | (143, 164)| (143, 160)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 6.2300000 | 5         | 6         | 26        | 0.001     | (73, 170) | (69, 174) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 6.4100000 | 6         | 7         | 22        | 0.0011    | (123, 264)| (122, 258)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 10.410000 | 10        | 11        | 37        | 0.0019    | (91, 82)  | (101, 81) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 11.870000 | 9         | 10        | 45        | 0.0016    | (98, 108) | (106, 116)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 11.870000 | 9         | 10        | 44        | 0.0019    | (139, 194)| (132, 185)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 10.870000 | 8         | 9         | 41        | 0.0016    | (90, 196) | (98, 189) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 10.230000 | 9         | 10        | 38        | 0.0014    | (144, 268)| (141, 277)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 9.8200000 | 9         | 10        | 30        | 0.0013    | (91, 263) | (100, 263)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 10.410000 | 10        | 11        | 37        | 0.0016    | (87, 122) | (97, 123) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 10.000000 | 10        | 11        | 35        | 0.0016    | (136, 168)| (136, 178)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 10.460000 | 8         | 9         | 41        | 0.0013    | (43, 150) | (51, 144) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 11.460000 | 9         | 11        | 40        | 0.0015    | (39, 130) | (31, 133) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 14.870000 | 12        | 13        | 55        | 0.0021    | (113, 192)| (106, 180)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 15.460000 | 13        | 14        | 56        | 0.0023    | (166, 221)| (153, 227)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 15.640000 | 14        | 15        | 55        | 0.0026    | (49, 161) | (45, 147) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 15.640000 | 14        | 15        | 55        | 0.0025    | (74, 270) | (60, 274) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 15.050000 | 13        | 14        | 49        | 0.0024    | (157, 126)| (170, 121)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 14.640000 | 13        | 14        | 52        | 0.0027    | (95, 202) | (82, 206) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 14.640000 | 13        | 14        | 46        | 0.0023    | (132, 183)| (128, 196)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 12.820000 | 12        | 13        | 45        | 0.0018    | (167, 121)| (169, 133)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 15.410000 | 15        | 16        | 49        | 0.0025    | (164, 90) | (165, 105)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 12.870000 | 10        | 11        | 49        | 0.0014    | (189, 256)| (196, 266)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 16.690000 | 13        | 14        | 62        | 0.0008    | (49, 129) | (36, 138) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 18.820000 | 18        | 19        | 63        | 0.0009    | (154, 254)| (136, 256)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 17.510000 | 13        | 14        | 66        | 0.0009    | (50, 95)  | (38, 107) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 16.460000 | 14        | 15        | 54        | 0.0007    | (72, 161) | (78, 175) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 19.820000 | 19        | 20        | 66        | 0.001     | (92, 117) | (94, 136) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 19.330000 | 14        | 15        | 71        | 0.0008    | (67, 264) | (81, 251) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 16.050000 | 14        | 15        | 57        | 0.0007    | (18, 128) | (13, 114) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 18.640000 | 17        | 18        | 64        | 0.0009    | (135, 167)| (139, 184)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 19.870000 | 17        | 18        | 69        | 0.0009    | (95, 82)  | (102, 99) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 16.100000 | 12        | 13        | 61        | 0.0007    | (67, 128) | (77, 116) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 23.740000 | 18        | 19        | 84        | 0.0011    | (149, 169)| (131, 183)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 24.460000 | 22        | 23        | 68        | 0.0009    | (75, 172) | (79, 194) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 21.510000 | 17        | 18        | 77        | 0.001     | (154, 167)| (137, 156)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 23.050000 | 21        | 22        | 78        | 0.0012    | (122, 200)| (117, 179)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 23.230000 | 22        | 23        | 77        | 0.0012    | (150, 105)| (153, 83) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 22.100000 | 18        | 19        | 74        | 0.001     | (124, 179)| (114, 161)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 20.280000 | 17        | 18        | 70        | 0.0009    | (159, 156)| (151, 139)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 22.870000 | 20        | 21        | 79        | 0.0011    | (105, 84) | (85, 77)  | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 21.100000 | 17        | 18        | 71        | 0.0009    | (41, 95)  | (58, 105) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 23.690000 | 20        | 21        | 83        | 0.0011    | (65, 238) | (74, 258) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 25.560000 | 19        | 20        | 94        | 0.0013    | (88, 172) | (104, 153)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 25.100000 | 21        | 22        | 85        | 0.0012    | (207, 257)| (186, 267)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 35.380000 | 28        | 47        | 134       | 0.0055    | (96, 190) | (119, 181)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 24.000000 | 24        | 25        | 77        | 0.0017    | (140, 95) | (164, 95) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 24.870000 | 22        | 23        | 85        | 0.003     | (94, 70)  | (87, 92)  | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 27.410000 | 27        | 28        | 88        | 0.0017    | (121, 96) | (122, 69) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 27.330000 | 22        | 23        | 97        | 0.0032    | (104, 62) | (126, 75) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 26.050000 | 24        | 25        | 71        | 0.0012    | (82, 262) | (79, 238) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 28.920000 | 24        | 25        | 87        | 0.0028    | (88, 202) | (96, 178) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 27.560000 | 21        | 22        | 98        | 0.002     | (147, 96) | (163, 117)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 28.820000 | 28        | 29        | 93        | 0.0025    | (70, 135) | (68, 107) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 35.740000 | 30        | 33        | 98        | 0.0037    | (101, 245)| (95, 219) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 28.510000 | 24        | 25        | 99        | 0.0032    | (138, 265)| (114, 254)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 29.820000 | 29        | 30        | 88        | 0.0043    | (73, 123) | (102, 123)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 31.230000 | 30        | 31        | 96        | 0.0039    | (38, 135) | (35, 105) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 32.330000 | 27        | 45        | 106       | 0.0049    | (100, 177)| (81, 182) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 30.690000 | 27        | 28        | 97        | 0.0037    | (102, 192)| (75, 199) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 27.970000 | 21        | 22        | 102       | 0.002     | (105, 141)| (126, 158)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 29.100000 | 25        | 26        | 100       | 0.0034    | (100, 226)| (110, 201)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 28.280000 | 25        | 26        | 96        | 0.0022    | (129, 191)| (104, 199)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 33.410000 | 33        | 34        | 106       | 0.0043    | (103, 103)| (102, 136)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 37.280000 | 34        | 35        | 88        | 0.0016    | (179, 276)| (175, 242)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 32.150000 | 26        | 27        | 113       | 0.003     | (114, 151)| (88, 136) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 33.510000 | 29        | 30        | 114       | 0.0034    | (115, 85) | (104, 56) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 35.840000 | 26        | 27        | 131       | 0.0024    | (60, 171) | (36, 145) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 35.150000 | 29        | 30        | 122       | 0.0025    | (116, 192)| (87, 207) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 33.740000 | 28        | 29        | 113       | 0.0032    | (102, 184)| (130, 198)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 33.200000 | 25        | 26        | 120       | 0.0018    | (82, 197) | (62, 172) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 34.330000 | 29        | 30        | 96        | 0.0015    | (82, 99)  | (56, 113) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 34.840000 | 25        | 26        | 126       | 0.0017    | (70, 277) | (45, 253) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 37.280000 | 34        | 35        | 123       | 0.002     | (53, 146) | (61, 112) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 39.000000 | 39        | 40        | 122       | 0.0022    | (123, 183)| (123, 144)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 39.430000 | 30        | 31        | 136       | 0.0019    | (136, 165)| (166, 142)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 36.640000 | 35        | 36        | 118       | 0.002     | (104, 66) | (100, 101)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 38.560000 | 32        | 36        | 119       | 0.0018    | (120, 106)| (100, 84) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 37.050000 | 35        | 36        | 120       | 0.002     | (120, 65) | (85, 70)  | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 36.410000 | 36        | 37        | 115       | 0.0021    | (107, 93) | (108, 129)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 39.640000 | 38        | 39        | 127       | 0.0022    | (41, 148) | (37, 110) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 36.200000 | 28        | 29        | 124       | 0.0018    | (170, 92) | (150, 120)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 38.970000 | 32        | 33        | 127       | 0.0019    | (73, 128) | (88, 160) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 44.020000 | 35        | 36        | 127       | 0.0019    | (77, 101) | (49, 124) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 42.150000 | 36        | 37        | 143       | 0.0024    | (124, 162)| (109, 126)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 43.300000 | 31        | 32        | 156       | 0.0023    | (99, 119) | (129, 150)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 43.510000 | 39        | 40        | 112       | 0.0018    | (13, 94)  | (25, 128) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 43.610000 | 35        | 36        | 152       | 0.0024    | (64, 178) | (99, 199) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 43.640000 | 42        | 43        | 139       | 0.0027    | (135, 139)| (93, 143) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 43.070000 | 32        | 33        | 155       | 0.0023    | (167, 234)| (194, 266)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 40.150000 | 34        | 68        | 159       | 0.0036    | (105, 101)| (79, 94)  | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 44.100000 | 40        | 41        | 103       | 0.0017    | (150, 118)| (144, 158)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 41.870000 | 39        | 40        | 136       | 0.0026    | (95, 140) | (134, 147)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 44.690000 | 41        | 42        | 143       | 0.0024    | (97, 97)  | (106, 56) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 45.100000 | 41        | 48        | 119       | 0.0021    | (79, 163) | (95, 182) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 44.790000 | 37        | 38        | 146       | 0.0023    | (61, 151) | (44, 114) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 45.710000 | 33        | 34        | 166       | 0.0027    | (119, 149)| (86, 118) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 56.840000 | 47        | 92        | 220       | 0.0052    | (75, 91)  | (112, 99) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 46.150000 | 40        | 41        | 136       | 0.0023    | (151, 115)| (162, 155)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 45.200000 | 37        | 38        | 132       | 0.0022    | (110, 118)| (93, 82)  | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 46.660000 | 36        | 37        | 165       | 0.0026    | (90, 155) | (116, 119)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 45.430000 | 36        | 37        | 159       | 0.0025    | (103, 166)| (67, 143) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 46.380000 | 39        | 40        | 129       | 0.0022    | (159, 134)| (175, 95) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 50.530000 | 37        | 38        | 176       | 0.0029    | (121, 60) | (88, 97)  | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 53.510000 | 49        | 50        | 158       | 0.0029    | (122, 145)| (73, 152) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 49.560000 | 43        | 44        | 162       | 0.0027    | (76, 184) | (118, 201)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 51.690000 | 48        | 49        | 167       | 0.0032    | (136, 251)| (88, 260) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 51.460000 | 49        | 50        | 161       | 0.0031    | (146, 125)| (152, 174)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 47.970000 | 41        | 42        | 162       | 0.0027    | (43, 102) | (84, 85)  | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 51.790000 | 44        | 46        | 144       | 0.0025    | (57, 78)  | (101, 67) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 51.560000 | 45        | 46        | 148       | 0.0025    | (147, 78) | (102, 66) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 57.480000 | 46        | 49        | 185       | 0.003     | (17, 130) | (60, 109) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 49.940000 | 36        | 37        | 181       | 0.0028    | (107, 103)| (71, 137) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 57.020000 | 48        | 125       | 266       | 0.0068    | (109, 114)| (121, 66) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 55.330000 | 50        | 52        | 155       | 0.0027    | (119, 161)| (90, 191) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 55.870000 | 53        | 54        | 177       | 0.0033    | (131, 150)| (78, 143) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 64.840000 | 55        | 130       | 263       | 0.0111    | (112, 126)| (120, 93) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 52.480000 | 41        | 42        | 182       | 0.003     | (98, 97)  | (139, 125)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 55.820000 | 55        | 56        | 171       | 0.0035    | (159, 167)| (157, 112)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 70.300000 | 58        | 624       | 776       | 0.0396    | (118, 102)| (84, 100) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 56.560000 | 50        | 51        | 170       | 0.0033    | (74, 128) | (84, 178) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 54.300000 | 42        | 43        | 175       | 0.0027    | (55, 119) | (88, 82)  | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 53.940000 | 40        | 41        | 186       | 0.003     | (101, 166)| (138, 129)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 56.890000 | 45        | 46        | 169       | 0.0028    | (163, 137)| (135, 93) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 60.020000 | 51        | 52        | 173       | 0.0031    | (93, 95)  | (42, 113) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 59.120000 | 46        | 47        | 199       | 0.0033    | (116, 60) | (148, 106)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 58.790000 | 51        | 53        | 177       | 0.0031    | (92, 159) | (122, 195)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 57.170000 | 42        | 43        | 197       | 0.003     | (146, 102)| (105, 64) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 63.350000 | 49        | 198       | 381       | 0.0125    | (109, 198)| (154, 171)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 56.020000 | 47        | 48        | 181       | 0.0031    | (71, 198) | (94, 152) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 58.150000 | 52        | 53        | 186       | 0.0035    | (132, 112)| (80, 127) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 75.660000 | 65        | 177       | 312       | 0.014     | (62, 89)  | (103, 103)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 58.480000 | 47        | 54        | 182       | 0.0121    | (117, 107)| (93, 66)  | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 69.300000 | 57        | 85        | 221       | 0.02      | (137, 150)| (111, 183)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 77.790000 | 70        | 407       | 529       | 0.0717    | (67, 243) | (102, 227)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 76.890000 | 65        | 836       | 1073      | 0.1737    | (115, 92) | (65, 100) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 64.070000 | 53        | 54        | 170       | 0.0105    | (117, 260)| (65, 278) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 61.530000 | 48        | 469       | 704       | 0.0707    | (103, 208)| (140, 168)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 61.690000 | 58        | 59        | 192       | 0.0036    | (82, 143) | (140, 134)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 90.400000 | 74        | 153       | 360       | 0.0232    | (70, 184) | (125, 179)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 64.020000 | 55        | 72        | 226       | 0.0112    | (59, 105) | (110, 93) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 77.710000 | 65        | 128       | 274       | 0.0134    | (84, 96)  | (127, 111)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 61.480000 | 50        | 172       | 311       | 0.0201    | (52, 154) | (84, 176) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 69.970000 | 63        | 1029      | 1162      | 0.0645    | (89, 145) | (77, 171) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 68.580000 | 53        | 55        | 221       | 0.004     | (116, 139)| (78, 188) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 69.430000 | 60        | 61        | 195       | 0.0037    | (61, 269) | (121, 250)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 66.940000 | 53        | 687       | 898       | 0.0467    | (115, 119)| (78, 101) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 66.530000 | 53        | 54        | 204       | 0.0038    | (97, 77)  | (44, 104) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 65.560000 | 59        | 928       | 1134      | 0.0628    | (109, 98) | (159, 99) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 67.120000 | 54        | 55        | 231       | 0.0041    | (136, 187)| (168, 133)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 71.710000 | 59        | 71        | 239       | 0.0047    | (85, 72)  | (106, 17) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 69.940000 | 56        | 58        | 196       | 0.0033    | (34, 95)  | (90, 69)  | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 68.120000 | 55        | 60        | 216       | 0.0038    | (75, 74)  | (104, 30) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 72.940000 | 59        | 62        | 206       | 0.0037    | (100, 138)| (73, 194) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 68.630000 | 51        | 52        | 237       | 0.004     | (62, 105) | (105, 54) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 69.760000 | 55        | 57        | 218       | 0.0036    | (105, 86) | (73, 141) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 71.710000 | 59        | 60        | 244       | 0.0044    | (158, 165)| (99, 196) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 78.940000 | 65        | 81        | 247       | 0.005     | (110, 205)| (84, 258) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 68.300000 | 56        | 57        | 219       | 0.0145    | (42, 133) | (89, 96)  | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 69.250000 | 59        | 60        | 215       | 0.014     | (131, 263)| (102, 212)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 72.740000 | 67        | 76        | 181       | 0.0116    | (139, 159)| (146, 95) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 70.380000 | 63        | 64        | 215       | 0.0126    | (54, 181) | (117, 195)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 70.330000 | 65        | 1082      | 1221      | 0.1548    | (120, 152)| (132, 162)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 75.660000 | 65        | 2085      | 2221      | 0.2455    | (69, 179) | (69, 152) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 81.710000 | 69        | 73        | 219       | 0.0044    | (116, 199)| (128, 131)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 80.840000 | 71        | 72        | 201       | 0.0037    | (132, 260)| (61, 272) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 85.300000 | 73        | 1953      | 2201      | 0.1518    | (86, 206) | (78, 137) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 71.690000 | 68        | 1101      | 1296      | 0.1432    | (133, 161)| (121, 150)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 78.380000 | 71        | 254       | 415       | 0.0514    | (118, 132)| (111, 176)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 91.400000 | 75        | 109       | 274       | 0.0217    | (138, 149)| (101, 199)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 78.480000 | 67        | 101       | 248       | 0.0184    | (70, 131) | (77, 193) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 82.170000 | 67        | 70        | 240       | 0.0135    | (128, 253)| (87, 204) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 84.200000 | 76        | 2012      | 2191      | 0.2475    | (80, 77)  | (69, 106) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 80.330000 | 75        | 76        | 227       | 0.0045    | (10, 96)  | (63, 127) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 87.300000 | 75        | 120       | 310       | 0.0076    | (102, 131)| (117, 59) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 77.250000 | 67        | 68        | 256       | 0.005     | (143, 78) | (168, 145)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 79.200000 | 71        | 72        | 258       | 0.0052    | (86, 171) | (106, 100)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 86.200000 | 78        | 1994      | 2175      | 0.1272    | (108, 163)| (78, 157) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 80.380000 | 73        | 1086      | 1250      | 0.0987    | (127, 147)| (136, 161)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 86.220000 | 69        | 214       | 382       | 0.0347    | (130, 99) | (86, 128) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 81.940000 | 68        | 270       | 443       | 0.0408    | (181, 266)| (134, 275)| ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 78.690000 | 75        | 76        | 206       | 0.013     | (115, 253)| (40, 250) | ./example/gridmap/arena2.map| Hidden              
+graph     | a-star    | Success   | 80.150000 | 74        | 76        | 198       | 0.0121    | (81, 254) | (155, 249)| ./example/gridmap/arena2.map| Hidden              
