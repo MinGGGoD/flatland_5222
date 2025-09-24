@@ -1,0 +1,101 @@
+Framework,Strategy,Status,Cost,Depth,Nodes(exp),Nodes(gen),Runtime,start,goal,Problem,Solution
+graph,a-star,Success,2.41,2,3,13,0.0005,"(124, 256)","(125, 258)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,3.82,3,4,18,0.0002,"(159, 99)","(162, 101)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,3.41,3,4,16,0.0001,"(130, 112)","(131, 109)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,2.41,2,3,13,0.0001,"(94, 101)","(93, 103)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,2.41,2,3,13,0.0001,"(58, 111)","(60, 110)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,3.82,3,4,18,0.0001,"(83, 93)","(80, 95)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,3.82,3,4,18,0.0001,"(48, 262)","(46, 259)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,2.41,2,3,13,0.0001,"(39, 270)","(40, 268)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,1,1,2,8,0,"(101, 237)","(102, 237)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,1,1,2,5,0,"(178, 274)","(178, 273)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,6.64,5,6,27,0.0002,"(99, 102)","(104, 98)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,4,4,5,17,0.0001,"(113, 69)","(117, 69)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,7,7,8,26,0.0002,"(138, 256)","(131, 256)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,7.23,6,12,34,0.0004,"(123, 118)","(126, 112)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,6.41,6,7,25,0.0002,"(128, 141)","(129, 147)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,5.23,4,5,23,0.0001,"(40, 140)","(44, 137)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,7.23,6,12,30,0.0004,"(53, 239)","(50, 245)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,4,4,5,17,0.0002,"(143, 164)","(143, 160)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,5.64,4,5,23,0.0002,"(73, 170)","(69, 174)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,6.41,6,7,22,0.0002,"(123, 264)","(122, 258)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,10.41,10,11,37,0.0004,"(91, 82)","(101, 81)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,11.28,8,9,42,0.0003,"(98, 108)","(106, 116)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,11.87,9,18,52,0.0006,"(139, 194)","(132, 185)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,10.87,8,9,43,0.0003,"(90, 196)","(98, 189)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,10.23,9,21,49,0.0007,"(144, 268)","(141, 277)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,9.82,9,17,35,0.0005,"(91, 263)","(100, 263)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,10.41,10,11,37,0.0004,"(87, 122)","(97, 123)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,10,10,11,35,0.0004,"(136, 168)","(136, 178)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,10.46,8,15,47,0.0005,"(43, 150)","(51, 144)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,9.82,9,30,58,0.0009,"(39, 130)","(31, 133)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,14.87,12,39,75,0.0013,"(113, 192)","(106, 180)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,15.46,13,50,94,0.0019,"(166, 221)","(153, 227)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,15.64,14,40,76,0.0012,"(49, 161)","(45, 147)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,15.64,14,54,96,0.0019,"(74, 270)","(60, 274)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,15.05,13,43,80,0.0013,"(157, 126)","(170, 121)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,14.64,13,48,88,0.0016,"(95, 202)","(82, 206)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,14.64,13,33,67,0.001,"(132, 183)","(128, 196)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,12.82,12,23,57,0.0009,"(167, 121)","(169, 133)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,15.41,15,16,49,0.0006,"(164, 90)","(165, 105)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,12.87,10,27,65,0.001,"(189, 256)","(196, 266)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,16.69,13,44,92,0.0016,"(49, 129)","(36, 138)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,18.82,18,41,87,0.0013,"(154, 254)","(136, 256)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,16.92,12,13,63,0.0005,"(50, 95)","(38, 107)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,16.46,14,57,103,0.0018,"(72, 161)","(78, 175)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,19.82,19,44,92,0.0015,"(92, 117)","(94, 136)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,19.33,14,15,70,0.0005,"(67, 264)","(81, 251)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,16.05,14,41,79,0.0013,"(18, 128)","(13, 114)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,18.64,17,63,111,0.002,"(135, 167)","(139, 184)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,19.87,17,59,107,0.0019,"(95, 82)","(102, 99)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,16.1,12,27,75,0.0009,"(67, 128)","(77, 116)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,23.74,18,68,129,0.0023,"(149, 169)","(131, 183)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,23.64,22,89,142,0.003,"(75, 172)","(79, 194)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,21.51,17,82,144,0.0028,"(154, 167)","(137, 156)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,23.05,21,101,159,0.0033,"(122, 200)","(117, 179)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,23.23,22,72,128,0.0023,"(150, 105)","(153, 83)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,22.1,18,98,156,0.0033,"(124, 179)","(114, 161)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,20.28,17,77,127,0.0024,"(159, 156)","(151, 139)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,22.87,20,109,169,0.0038,"(105, 84)","(85, 77)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,21.1,17,83,138,0.0032,"(41, 95)","(58, 105)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,23.69,20,118,182,0.0049,"(65, 238)","(74, 258)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,25.56,19,63,134,0.0026,"(88, 172)","(104, 153)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,25.1,21,131,193,0.0044,"(207, 257)","(186, 267)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,150,212,0.0049,"(96, 190)","(119, 181)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,24,24,25,77,0.001,"(140, 95)","(164, 95)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,24.87,22,127,193,0.0042,"(94, 70)","(87, 92)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,27.41,27,28,88,0.001,"(121, 96)","(122, 69)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,141,213,0.0049,"(104, 62)","(126, 75)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,26.05,24,92,145,0.0031,"(82, 262)","(79, 238)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,149,212,0.0049,"(88, 202)","(96, 178)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,27.56,21,103,176,0.0037,"(147, 96)","(163, 117)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,28.82,28,71,137,0.0024,"(70, 135)","(68, 107)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,30.69,27,154,210,0.0048,"(101, 245)","(95, 219)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,149,215,0.0049,"(138, 265)","(114, 254)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,29.82,29,41,102,0.0013,"(73, 123)","(102, 123)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,31.23,30,104,174,0.0034,"(38, 135)","(35, 105)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,158,222,0.0049,"(100, 177)","(81, 182)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,147,213,0.0049,"(102, 192)","(75, 199)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,27.97,21,91,171,0.0034,"(105, 141)","(126, 158)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,153,215,0.0049,"(100, 226)","(110, 201)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,143,209,0.0049,"(129, 191)","(104, 199)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,33.41,33,34,106,0.0013,"(103, 103)","(102, 136)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,35.64,34,97,149,0.0032,"(179, 276)","(175, 242)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,138,208,0.0049,"(114, 151)","(88, 136)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,148,212,0.0049,"(115, 85)","(104, 56)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,35.84,26,69,173,0.0025,"(60, 171)","(36, 145)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,137,205,0.0049,"(116, 192)","(87, 207)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,148,214,0.0049,"(102, 184)","(130, 198)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,33.2,25,131,223,0.0047,"(82, 197)","(62, 172)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,33.51,29,151,221,0.0048,"(82, 99)","(56, 113)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Success,34.84,25,26,128,0.0011,"(70, 277)","(45, 253)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,68,116,0.0051,"(53, 146)","(61, 112)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,30,92,0.0049,"(123, 183)","(123, 144)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,34,99,0.0049,"(136, 165)","(166, 142)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,36,88,0.0052,"(104, 66)","(100, 101)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,47,74,0.005,"(120, 106)","(100, 84)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,44,96,0.005,"(120, 65)","(85, 70)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,34,104,0.0051,"(107, 93)","(108, 129)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,37,93,0.0049,"(41, 148)","(37, 110)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,37,90,0.005,"(170, 92)","(150, 120)",./example/gridmap/arena2.map,Hidden
+graph,a-star,Time out,None,None,42,73,0.0049,"(73, 128)","(88, 160)",./example/gridmap/arena2.map,Hidden
